@@ -3,12 +3,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     let allEvents = [];
 
-    // Fetch events from the Flask API
+    // Supabase credentials
+    const SUPABASE_URL = 'https://thphtswaxlzpcipklhuy.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_Dat2eljf5Zp07VSSjhzTDw_oOc6WOFD';
+
+    // Fetch events directly from Supabase REST API
     async function fetchEvents() {
         try {
-            const response = await fetch('/api/events');
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*`, {
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`
+                }
+            });
+
             if (!response.ok) {
-                throw new Error('Failed to fetch events');
+                throw new Error(`Failed to fetch events: ${response.statusText}`);
             }
 
             allEvents = await response.json();
