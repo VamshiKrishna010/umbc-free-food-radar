@@ -17,15 +17,21 @@ CORS(app)
 MONGO_URI = os.getenv("MONGO_URI")
 print(f"DEBUG: app.py MONGO_URI starts with: {str(MONGO_URI)[:15] if MONGO_URI else 'None'}", flush=True)
 
-# Connect to MongoDB. If this fails, the app will intentionally crash 
-# so Render restarts it until the database is available.
-client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, tlsCAFile=certifi.where())
-# Test connection explicitly
-client.server_info()
-print("Successfully connected to MongoDB!", flush=True)
-
-db = client.umbc_food_radar
-events_collection = db.events
+# Connect to MongoDB.
+try:
+    if MONGO_URI and "<" in MONGO_URI:
+        print("WARNING: Your MONGO_URI contains unresolved placeholders like <db_password>. Please fix this in Render Environment Variables.", flush=True)
+        
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, tlsCAFile=certifi.where())
+    # Test connection explicitly
+    client.server_info()
+    print("Successfully connected to MongoDB!", flush=True)
+    db = client.umbc_food_radar
+    events_collection = db.events
+except Exception as e:
+    print(f"CRITICAL: Failed to connect to MongoDB: {e}", flush=True)
+    db = None
+    events_collection = None
 
 def scheduled_scraping():
     print("Running scheduled background scrape...")
@@ -58,7 +64,7 @@ def get_events():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     
-    return jsonify([])
+    return jsonify({'error': 'Database failed to connect. Check if MONGO_URI has <db_password> in it!'}), 500
 
 if __name__ == '__main__':
     # Run the app on all interfaces, port 5000
