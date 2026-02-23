@@ -15,16 +15,17 @@ CORS(app)
 
 # MongoDB Setup
 MONGO_URI = os.getenv("MONGO_URI")
-print(f"DEBUG: app.py MONGO_URI starts with: {str(MONGO_URI)[:15] if MONGO_URI else 'None'}")
-try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, tlsCAFile=certifi.where())
-    # Test connection explicitly!
-    client.server_info()
-    db = client.umbc_food_radar
-    events_collection = db.events
-except Exception as e:
-    print(f"Failed to connect to MongoDB in Flask app: {e}")
-    db = None
+print(f"DEBUG: app.py MONGO_URI starts with: {str(MONGO_URI)[:15] if MONGO_URI else 'None'}", flush=True)
+
+# Connect to MongoDB. If this fails, the app will intentionally crash 
+# so Render restarts it until the database is available.
+client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, tlsCAFile=certifi.where())
+# Test connection explicitly
+client.server_info()
+print("Successfully connected to MongoDB!", flush=True)
+
+db = client.umbc_food_radar
+events_collection = db.events
 
 def scheduled_scraping():
     print("Running scheduled background scrape...")
