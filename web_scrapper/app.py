@@ -39,7 +39,7 @@ from datetime import datetime
 
 # Initialize and start the background scheduler
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=scheduled_scraping, trigger="interval", minutes=15, next_run_time=datetime.now())
+scheduler.add_job(func=scheduled_scraping, trigger="interval", minutes=15)
 scheduler.start()
 
 @app.route('/')
