@@ -2,6 +2,7 @@ from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
 from pymongo import MongoClient
+import certifi
 from dotenv import load_dotenv
 import json
 import os
@@ -16,7 +17,7 @@ CORS(app)
 MONGO_URI = os.getenv("MONGO_URI")
 print(f"DEBUG: app.py MONGO_URI starts with: {str(MONGO_URI)[:15] if MONGO_URI else 'None'}")
 try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, tlsCAFile=certifi.where())
     # Test connection explicitly!
     client.server_info()
     db = client.umbc_food_radar

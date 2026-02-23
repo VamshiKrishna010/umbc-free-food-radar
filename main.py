@@ -5,6 +5,7 @@ from scrapers.myumbc_scraper import MyUMBCScraper
 from utils.notifier import DiscordNotifier
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import certifi
 
 load_dotenv()
 
@@ -18,7 +19,7 @@ DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK_URL")
 # MongoDB Setup
 MONGO_URI = os.getenv("MONGO_URI")
 try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, tlsCAFile=certifi.where())
     db = client.umbc_food_radar
     events_collection = db.events
     seen_events_collection = db.seen_events

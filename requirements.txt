@@ -7,3 +7,4 @@ flask-cors>=4.0.0
 apscheduler>=3.10.0
 pymongo>=4.0.0
 gunicorn>=21.2.0
+certifi>=2024.2.2
