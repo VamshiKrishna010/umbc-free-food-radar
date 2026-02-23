@@ -4,6 +4,7 @@ from datetime import datetime
 from scrapers.myumbc_scraper import MyUMBCScraper
 from utils.notifier import DiscordNotifier
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 load_dotenv()
 
@@ -13,29 +14,63 @@ CALENDAR_URLS = [
     "https://my.umbc.edu/events", # Main calendar to catch untagged free food
 ]
 DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK_URL")
-DATABASE_FILE = "seen_events.json"
-EVENTS_DATA_FILE = "events_data.json"
+
+# MongoDB Setup
+MONGO_URI = os.getenv("MONGO_URI")
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    db = client.umbc_food_radar
+    events_collection = db.events
+    seen_events_collection = db.seen_events
+    # Test connection
+    client.server_info()
+    print("Successfully connected to MongoDB")
+except Exception as e:
+    print(f"Failed to connect to MongoDB: {e}")
+    # Fallback to local lists if connection fails
+    db = None
 
 def load_seen_events():
-    if os.path.exists(DATABASE_FILE):
-        with open(DATABASE_FILE, 'r') as f:
-            return set(json.load(f))
+    if db is not None:
+        try:
+            return set(doc['_id'] for doc in seen_events_collection.find({}, {'_id': 1}))
+        except Exception as e:
+            print(f"Error loading seen events from DB: {e}")
     return set()
 
 def save_seen_events(seen_set):
-    with open(DATABASE_FILE, 'w') as f:
-        json.dump(list(seen_set), f)
+    if db is not None:
+        try:
+            # Upsert each seen event ID
+            for event_id in seen_set:
+                seen_events_collection.update_one(
+                    {'_id': event_id}, 
+                    {'$set': {'_id': event_id}}, 
+                    upsert=True
+                )
+        except Exception as e:
+            print(f"Error saving seen events to DB: {e}")
 
 def load_events_data():
-    if os.path.exists(EVENTS_DATA_FILE):
-        with open(EVENTS_DATA_FILE, 'r') as f:
-            return json.load(f)
+    if db is not None:
+        try:
+            return list(events_collection.find({}, {'_id': 0}))
+        except Exception as e:
+            print(f"Error loading events data from DB: {e}")
     return []
 
 def save_events_data(events_list):
-    # Sort events by date if possible before saving, or just save them
-    with open(EVENTS_DATA_FILE, 'w') as f:
-        json.dump(events_list, f, indent=4)
+    if db is not None:
+        try:
+            for event in events_list:
+                # Use the 'link' as a unique identifier for upserts
+                events_collection.update_one(
+                    {'link': event['link']},
+                    {'$set': event},
+                    upsert=True
+                )
+        except Exception as e:
+            print(f"Error saving events data to DB: {e}")
 
 def main():
     print(f"[{datetime.now()}] Starting Scraper...")

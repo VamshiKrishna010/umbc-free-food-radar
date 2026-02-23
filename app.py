@@ -1,14 +1,29 @@
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
+from pymongo import MongoClient
+from dotenv import load_dotenv
 import json
 import os
 from main import main as run_scraper
 
+load_dotenv()
+
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
-EVENTS_DATA_FILE = "events_data.json"
+# MongoDB Setup
+MONGO_URI = os.getenv("MONGO_URI")
+print(f"DEBUG: app.py MONGO_URI starts with: {str(MONGO_URI)[:15] if MONGO_URI else 'None'}")
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    # Test connection explicitly!
+    client.server_info()
+    db = client.umbc_food_radar
+    events_collection = db.events
+except Exception as e:
+    print(f"Failed to connect to MongoDB in Flask app: {e}")
+    db = None
 
 def scheduled_scraping():
     print("Running scheduled background scrape...")
@@ -33,11 +48,11 @@ def index():
 @app.route('/api/events')
 def get_events():
     """API endpoint to get the latest scraped events."""
-    if os.path.exists(EVENTS_DATA_FILE):
+    if db is not None:
         try:
-            with open(EVENTS_DATA_FILE, 'r') as f:
-                events = json.load(f)
-                return jsonify(events)
+            # Find all events, excluding the MongoDB _id field since it's not JSON serializable by default
+            events = list(events_collection.find({}, {'_id': 0}))
+            return jsonify(events)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     
