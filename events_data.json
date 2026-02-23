@@ -1,0 +1,26 @@
+[
+    {
+        "title": "Jeopardy Night",
+        "date": "Feb 24 6 PM",
+        "description": "Feb 24 6 PM Jeopardy Night The Commons : 329 \u00b7 Come join UMBC Hillel for a Jeopardy  Night with the Israel Committee to learn about histories, beliefs, and  contributions to Israel's cultural and spiritual landscape! Dinner will  be sushi and...",
+        "link": "https://my3.my.umbc.edu/groups/umbchillel/events/151529",
+        "source": "myUMBC",
+        "food_keyword": "Dinner"
+    },
+    {
+        "title": "The Essential Space (Free Grocery Store)",
+        "date": "Ongoing (Check RAC 235 Hours)",
+        "description": "A free grocery store located in the Retriever Activities Center, room 235. Pick up free groceries, toiletries, and baby items.",
+        "link": "https://retrieveressentials.umbc.edu",
+        "food_keyword": "free groceries",
+        "source": "Retriever Essentials"
+    },
+    {
+        "title": "Fresh Food Pop-Up",
+        "date": "Every Thursday 2:15 PM - 2:45 PM",
+        "description": "Located on the right side of the AOK Library. Get a variety of fresh food provided by So What Else.",
+        "link": "https://retrieveressentials.umbc.edu/#popup",
+        "food_keyword": "fresh food",
+        "source": "Retriever Essentials"
+    }
+]

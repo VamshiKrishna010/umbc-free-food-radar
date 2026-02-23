@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMBC Free Food Radar</title>
+    <!-- Google Fonts for Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    
+    <div class="app-background">
+        <!-- Abstract glowing orbs behind the content -->
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        
+        <div class="container">
+            <header>
+                <h1>UMBC Free <span class="highlight">Food Radar</span></h1>
+                <p class="subtitle">Real-time alerts for when the campus feeds you.</p>
+            </header>
+
+            <main>
+                <div class="controls">
+                    <div class="search-bar">
+                        <input type="text" id="searchInput" placeholder="Search events..." />
+                        <span class="search-icon">🔍</span>
+                    </div>
+                </div>
+
+                <div id="events-grid" class="events-grid">
+                    <!-- Events will be rendered here dynamically -->
+                    <div class="loading">Scanning campus for free food...</div>
+                </div>
+            </main>
+            
+            <footer>
+                <p>Scraped live from Retriever Essentials and myUMBC events.</p>
+            </footer>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
