@@ -2,7 +2,6 @@ import os
 import json
 from datetime import datetime
 from scrapers.myumbc_scraper import MyUMBCScraper
-from utils.notifier import DiscordNotifier
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,7 +11,6 @@ CALENDAR_URLS = [
     "https://my.umbc.edu/events/free-food", 
     "https://my.umbc.edu/events", # Main calendar to catch untagged free food
 ]
-DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK_URL")
 
 # Supabase Setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -66,7 +64,6 @@ def save_events_data(events_list):
 def main():
     print(f"[{datetime.now()}] Starting Scraper...")
     
-    notifier = DiscordNotifier(DISCORD_WEBHOOK)
     seen_events = load_seen_events()
     saved_events_data = load_events_data()
     all_found_food = []
@@ -96,8 +93,6 @@ def main():
                 print(f"New Food Event Found: {event['title']}")
                 all_found_food.append(event)
                 seen_events.add(event_id)
-                # notify immediately
-                notifier.notify(event)
 
     # Inject Retriever Essentials permanent locations into the database so they are always on the radar
     retriever_events = [
