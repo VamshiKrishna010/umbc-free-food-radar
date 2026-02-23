@@ -4,8 +4,6 @@ from datetime import datetime
 from scrapers.myumbc_scraper import MyUMBCScraper
 from utils.notifier import DiscordNotifier
 from dotenv import load_dotenv
-from pymongo import MongoClient
-import certifi
 
 load_dotenv()
 
@@ -16,60 +14,52 @@ CALENDAR_URLS = [
 ]
 DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK_URL")
 
-# MongoDB Setup
-MONGO_URI = os.getenv("MONGO_URI")
+# Supabase Setup
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
 try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, tlsCAFile=certifi.where())
-    db = client.umbc_food_radar
-    events_collection = db.events
-    seen_events_collection = db.seen_events
-    # Test connection
-    client.server_info()
-    print("Successfully connected to MongoDB")
+    from supabase import create_client, Client
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print("Successfully connected to Supabase")
 except Exception as e:
-    print(f"Failed to connect to MongoDB: {e}")
-    # Fallback to local lists if connection fails
-    db = None
+    print(f"Failed to connect to Supabase: {e}")
+    supabase = None
 
 def load_seen_events():
-    if db is not None:
+    if supabase is not None:
         try:
-            return set(doc['_id'] for doc in seen_events_collection.find({}, {'_id': 1}))
+            # We don't have a dedicated seen_events table in the new schema,
+            # we can just pull all existing event IDs from the main table.
+            response = supabase.table("events").select("id").execute()
+            return set(row["id"] for row in response.data)
         except Exception as e:
             print(f"Error loading seen events from DB: {e}")
     return set()
 
-def save_seen_events(seen_set):
-    if db is not None:
-        try:
-            # Upsert each seen event ID
-            for event_id in seen_set:
-                seen_events_collection.update_one(
-                    {'_id': event_id}, 
-                    {'$set': {'_id': event_id}}, 
-                    upsert=True
-                )
-        except Exception as e:
-            print(f"Error saving seen events to DB: {e}")
-
 def load_events_data():
-    if db is not None:
+    if supabase is not None:
         try:
-            return list(events_collection.find({}, {'_id': 0}))
+            response = supabase.table("events").select("*").execute()
+            return response.data
         except Exception as e:
             print(f"Error loading events data from DB: {e}")
     return []
 
 def save_events_data(events_list):
-    if db is not None:
+    if supabase is not None:
         try:
+            # Prepare data for upsert
             for event in events_list:
-                # Use the 'link' as a unique identifier for upserts
-                events_collection.update_one(
-                    {'link': event['link']},
-                    {'$set': event},
-                    upsert=True
-                )
+                supabase.table("events").upsert({
+                    "id": event['link'], # Using URL as the primary key ID
+                    "title": event.get('title', ''),
+                    "date": event.get('date', ''),
+                    "description": event.get('description', ''),
+                    "link": event.get('link', ''),
+                    "food_keyword": event.get('food_keyword', ''),
+                    "source": event.get('source', '')
+                }).execute()
         except Exception as e:
             print(f"Error saving events data to DB: {e}")
 
@@ -130,11 +120,9 @@ def main():
     ]
     
     for re_event in retriever_events:
-        existing_event = next((e for e in saved_events_data if e['link'] == re_event['link']), None)
         if not existing_event:
             saved_events_data.append(re_event)
             
-    save_seen_events(seen_events)
     save_events_data(saved_events_data)
     print(f"Done. Found {len(all_found_food)} new events with free food. Total stored events: {len(saved_events_data)}")
 
