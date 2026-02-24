@@ -7,9 +7,13 @@ from scrapers.campuslife_scraper import CampusLifeScraper
 from scrapers.seb_scraper import SEBScraper
 from scrapers.tickets_scraper import TicketsScraper
 from scrapers.sbs_scraper import SBSScraper
+from utils.notifier import DiscordNotifier
 from dotenv import load_dotenv
 
 load_dotenv()
+
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+discord_notifier = DiscordNotifier(DISCORD_WEBHOOK_URL)
 
 # URLs for event scrapers
 FOOD_EVENT_URLS = [
@@ -60,6 +64,7 @@ def load_existing_events():
 def save_events(events_list):
     if supabase is None:
         return
+    now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         for event in events_list:
             row = {
@@ -71,6 +76,7 @@ def save_events(events_list):
                 "food_keyword": event.get("food_keyword", ""),
                 "source": event.get("source", ""),
                 "category": event.get("category", CATEGORY_CAMPUS_EVENT),
+                "updated_at": now_iso,
             }
             supabase.table("events").upsert(row).execute()
     except Exception as e:
@@ -85,32 +91,43 @@ def main():
 
     # 1. Important dates (Registrar + SBS billing)
     print("Scraping important dates (Registrar, SBS)...")
-    registrar = RegistrarScraper()
-    important_dates = registrar.scrape()
-    for date_item in important_dates:
-        date_item["category"] = CATEGORY_IMPORTANT_DATE
-        date_item["id"] = date_item.get("link", "") + "#" + date_item.get("title", "")[:50]
-        all_events.append(date_item)
-    sbs = SBSScraper()
-    for date_item in sbs.scrape():
-        date_item["category"] = CATEGORY_IMPORTANT_DATE
-        date_item["id"] = date_item.get("link", "") + "#" + date_item.get("date", "") + date_item.get("title", "")[:30]
-        all_events.append(date_item)
-    print(f"  Found {len(important_dates)} + SBS important dates")
+    try:
+        registrar = RegistrarScraper()
+        important_dates = registrar.scrape()
+        for date_item in important_dates:
+            date_item["category"] = CATEGORY_IMPORTANT_DATE
+            date_item["id"] = date_item.get("link", "") + "#" + date_item.get("title", "")[:50]
+            all_events.append(date_item)
+    except Exception as e:
+        print(f"  [ERROR] Registrar scraper failed: {e}")
+    try:
+        sbs = SBSScraper()
+        for date_item in sbs.scrape():
+            date_item["category"] = CATEGORY_IMPORTANT_DATE
+            date_item["id"] = date_item.get("link", "") + "#" + date_item.get("date", "") + date_item.get("title", "")[:30]
+            all_events.append(date_item)
+    except Exception as e:
+        print(f"  [ERROR] SBS scraper failed: {e}")
 
     # 2. Food events from myUMBC and Retriever Essentials
     print("Scraping food events...")
     food_links = set()
     for url in FOOD_EVENT_URLS:
-        scraper = MyUMBCScraper(url)
-        all_from_page = scraper.scrape()
-        food_events = scraper.filter_food_events(all_from_page)
+        try:
+            scraper = MyUMBCScraper(url)
+            all_from_page = scraper.scrape()
+            food_events = scraper.filter_food_events(all_from_page)
+        except Exception as e:
+            print(f"  [ERROR] myUMBC scraper ({url}) failed: {e}")
+            continue
         for ev in food_events:
             ev["category"] = CATEGORY_FOOD_EVENT
             ev["id"] = ev.get("link", "")
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
+                if ev["id"] not in seen_ids:
+                    discord_notifier.notify(ev)
 
     # Retriever Essentials (permanent)
     retriever_events = [
@@ -140,9 +157,14 @@ def main():
     # 3. SEB events (Student Events Board) - check for food
     campus_seen = set()
     print("Scraping SEB events...")
-    seb_scraper = SEBScraper()
-    seb_events = seb_scraper.scrape()
-    seb_food = seb_scraper.filter_food_events(seb_events)
+    try:
+        seb_scraper = SEBScraper()
+        seb_events = seb_scraper.scrape()
+        seb_food = seb_scraper.filter_food_events(seb_events)
+    except Exception as e:
+        print(f"  [ERROR] SEB scraper failed: {e}")
+        seb_events = []
+        seb_food = []
     for ev in seb_events:
         ev["id"] = ev.get("link", "")
         if ev in seb_food:
@@ -151,6 +173,8 @@ def main():
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
+                if ev["id"] not in seen_ids:
+                    discord_notifier.notify(ev)
         else:
             ev["category"] = CATEGORY_CAMPUS_EVENT
             if ev["id"] not in campus_seen:
@@ -161,34 +185,28 @@ def main():
     # 4. Campus events from myUMBC, umbc.edu, campuslife, tickets
     print("Scraping campus events (myUMBC, UMBC events, Campus Life, Tickets)...")
     for url in ["https://my.umbc.edu/events"]:
-        scraper = MyUMBCScraper(url)
-        all_from_page = scraper.scrape()
-        for ev in all_from_page:
-            if ev.get("link") in food_links:
-                continue
-            ev["category"] = CATEGORY_CAMPUS_EVENT
-            ev["id"] = ev.get("link", "")
-            if ev["id"] not in campus_seen:
-                campus_seen.add(ev["id"])
-                all_events.append(ev)
-    for ev in UMBCEventsScraper().scrape():
-        ev["category"] = CATEGORY_CAMPUS_EVENT
-        ev["id"] = ev.get("link", "")
-        if ev["id"] not in campus_seen:
-            campus_seen.add(ev["id"])
-            all_events.append(ev)
-    for ev in CampusLifeScraper().scrape():
-        ev["category"] = CATEGORY_CAMPUS_EVENT
-        ev["id"] = ev.get("link", "")
-        if ev["id"] not in campus_seen:
-            campus_seen.add(ev["id"])
-            all_events.append(ev)
-    for ev in TicketsScraper().scrape():
-        ev["category"] = CATEGORY_CAMPUS_EVENT
-        ev["id"] = ev.get("link", "")
-        if ev["id"] not in campus_seen:
-            campus_seen.add(ev["id"])
-            all_events.append(ev)
+        try:
+            scraper = MyUMBCScraper(url)
+            for ev in scraper.scrape():
+                if ev.get("link") in food_links:
+                    continue
+                ev["category"] = CATEGORY_CAMPUS_EVENT
+                ev["id"] = ev.get("link", "")
+                if ev["id"] not in campus_seen:
+                    campus_seen.add(ev["id"])
+                    all_events.append(ev)
+        except Exception as e:
+            print(f"  [ERROR] myUMBC campus ({url}) failed: {e}")
+    for scraper_class, name in [(UMBCEventsScraper, "UMBC Events"), (CampusLifeScraper, "Campus Life"), (TicketsScraper, "Tickets")]:
+        try:
+            for ev in scraper_class().scrape():
+                ev["category"] = CATEGORY_CAMPUS_EVENT
+                ev["id"] = ev.get("link", "")
+                if ev["id"] not in campus_seen:
+                    campus_seen.add(ev["id"])
+                    all_events.append(ev)
+        except Exception as e:
+            print(f"  [ERROR] {name} scraper failed: {e}")
 
     save_events(all_events)
     counts = {

@@ -6,10 +6,12 @@ Automated dashboard for UMBC: important dates, free food events, and campus acti
 - **Important Dates:** Registrar academic calendar + SBS billing deadlines
 - **Free Food:** myUMBC, Retriever Essentials, Student Events Board (SEB)
 - **Campus Events:** myUMBC, umbc.edu/events, Campus Life (RAC), SEB, UMBC Tickets (athletics/arts)
+- **Discord Alerts:** New food events posted to Discord when `DISCORD_WEBHOOK_URL` is set
+- **PWA:** Installable on mobile; works offline with cached data
+- **Favorites, Share, Date filter:** Save events to favorites, share via Web Share API, filter by date range
+- **Auto-update:** GitHub Actions runs every 30 minutes
 
 *Note: Handshake requires student login and cannot be scraped. Career events may appear via myUMBC groups.*
-- **Tabs:** Separate views for each category
-- **Auto-update:** GitHub Actions runs every 2 hours
 
 ## Setup
 
@@ -27,7 +29,7 @@ Automated dashboard for UMBC: important dates, free food events, and campus acti
 
 3. **Configuration:**
    - Copy `.env.example` to `.env`
-   - Add `SUPABASE_URL` and `SUPABASE_KEY`
+   - Add `SUPABASE_URL`, `SUPABASE_KEY`, and optionally `DISCORD_WEBHOOK_URL` for alerts
 
 ## Usage
 ```bash
