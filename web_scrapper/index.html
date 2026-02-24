@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UMBC Food Radar - Important Dates, Free Food & Campus Events</title>
+    <meta name="theme-color" content="#fdb515">
+    <meta name="description" content="Important dates, free food &amp; campus events at UMBC. One place for Registrar, myUMBC, SEB, SBS &amp; more.">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <title>UMBC Food Radar - Important Dates, Free Food &amp; Campus Events</title>
     <!-- Google Fonts for Modern Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +36,7 @@
                 <button class="tab-btn active" data-tab="important_date">Important Dates</button>
                 <button class="tab-btn" data-tab="food_event">Free Food</button>
                 <button class="tab-btn" data-tab="campus_event">Campus Events</button>
+                <button class="tab-btn" data-tab="favorites">Favorites</button>
             </nav>
 
             <main>
@@ -40,8 +45,19 @@
                         <input type="text" id="searchInput" placeholder="Search events..." />
                         <span class="search-icon">🔍</span>
                     </div>
+                    <p id="last-updated" class="last-updated"></p>
+                </div>
+                <div class="filter-row">
+                    <div id="source-filter" class="source-filter"></div>
+                    <select id="date-range-filter" class="date-range-filter">
+                        <option value="all">All dates</option>
+                        <option value="week">This week</option>
+                        <option value="7days">Next 7 days</option>
+                        <option value="month">This month</option>
+                    </select>
                 </div>
 
+                <div id="pull-indicator" class="pull-indicator">Pull to refresh</div>
                 <div id="events-grid" class="events-grid">
                     <!-- Events will be rendered here dynamically -->
                     <div class="loading">Scanning campus for free food...</div>
@@ -49,11 +65,16 @@
             </main>
             
             <footer>
-                <p>Data from Registrar, myUMBC, SEB, SBS, Campus Life, Tickets, Retriever Essentials. Updates every 2 hours.</p>
+                <p>Data from Registrar, myUMBC, SEB, SBS, Campus Life, Tickets, Retriever Essentials. Updates every 30 minutes.</p>
             </footer>
         </div>
     </div>
 
     <script src="script.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      }
+    </script>
 </body>
 </html>

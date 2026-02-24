@@ -14,11 +14,14 @@ class DiscordNotifier:
             print("No Discord Webhook URL provided. Skipping notification.")
             return
 
+        desc = (event.get('description') or '')[:200]
+        if len(desc) >= 200:
+            desc += "..."
         payload = {
             "embeds": [{
-                "title": f"🍕 Free Food Alert: {event['title']}",
-                "description": event['description'][:200] + "...",
-                "url": event['link'],
+                "title": f"🍕 Free Food Alert: {event.get('title', 'Event')}",
+                "description": desc,
+                "url": event.get('link', ''),
                 "color": 15158332, # Red
                 "fields": [
                     {"name": "Date", "value": event.get('date', 'N/A'), "inline": True},
