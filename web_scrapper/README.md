@@ -1,4 +1,4 @@
-# UMBC Radar
+# UMBC Food Radar
 
 Automated dashboard for UMBC: important dates, free food events, and campus activities.
 
