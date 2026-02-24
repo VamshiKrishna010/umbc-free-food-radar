@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UMBC Free Food Radar</title>
+    <title>UMBC Radar - Important Dates, Free Food & Campus Events</title>
     <!-- Google Fonts for Modern Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,9 +19,15 @@
         
         <div class="container">
             <header>
-                <h1>UMBC Free <span class="highlight">Food Radar</span></h1>
-                <p class="subtitle">Real-time alerts for when the campus feeds you.</p>
+                <h1>UMBC <span class="highlight">Radar</span></h1>
+                <p class="subtitle">Important dates, free food, campus events — from Registrar, myUMBC, SEB, SBS, Campus Life &amp; more.</p>
             </header>
+
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="important_date">Important Dates</button>
+                <button class="tab-btn" data-tab="food_event">Free Food</button>
+                <button class="tab-btn" data-tab="campus_event">Campus Events</button>
+            </nav>
 
             <main>
                 <div class="controls">
@@ -38,7 +44,7 @@
             </main>
             
             <footer>
-                <p>Scraped live from Retriever Essentials and myUMBC events.</p>
+                <p>Data from Registrar, myUMBC, SEB, SBS, Campus Life, Tickets, Retriever Essentials. Updates every 2 hours.</p>
             </footer>
         </div>
     </div>

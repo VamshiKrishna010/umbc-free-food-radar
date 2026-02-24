@@ -1,33 +1,41 @@
-# Campus Event & Free Food Scraper
+# UMBC Radar
 
-Automated tool to scan university event calendars for free food.
+Automated dashboard for UMBC: important dates, free food events, and campus activities.
 
 ## Features
-- **Smart Detection:** Filters events based on keywords (pizza, lunch, etc.) and avoids false positives.
-- **Modular Scrapers:** Easily extensible base class for different calendar platforms (Localist, Trumba, etc.).
-- **Notifications:** Integrated Discord webhook support.
-- **Deduplication:** Keeps track of "seen" events in a local JSON database.
+- **Important Dates:** Registrar academic calendar + SBS billing deadlines
+- **Free Food:** myUMBC, Retriever Essentials, Student Events Board (SEB)
+- **Campus Events:** myUMBC, umbc.edu/events, Campus Life (RAC), SEB, UMBC Tickets (athletics/arts)
+
+*Note: Handshake requires student login and cannot be scraped. Career events may appear via myUMBC groups.*
+- **Tabs:** Separate views for each category
+- **Auto-update:** GitHub Actions runs every 2 hours
 
 ## Setup
+
 1. **Environment:**
    ```bash
    python -m venv venv
-   .\venv\Scripts\Activate.ps1
+   .\venv\Scripts\Activate.ps1   # or: source venv/bin/activate
    pip install -r requirements.txt
-   python -m playwright install chromium
    ```
 
-2. **Configuration:**
-   - Copy `.env.example` to `.env` and add your Discord Webhook URL.
-   - Edit `main.py` to add your university's calendar URL to the `CALENDAR_URLS` list.
+2. **Supabase:**
+   - Create a project at [supabase.com](https://supabase.com)
+   - Create an `events` table with: `id` (text primary key), `title`, `date`, `description`, `link`, `food_keyword`, `source`, `category`
+   - Or run the migration: `supabase_migration.sql` in Supabase SQL Editor
+
+3. **Configuration:**
+   - Copy `.env.example` to `.env`
+   - Add `SUPABASE_URL` and `SUPABASE_KEY`
 
 ## Usage
-Run the scraper:
 ```bash
+cd web_scrapper
 python main.py
 ```
 
 ## Project Structure
-- `scrapers/`: Individual site scrapers.
-- `utils/`: Notification and food detection logic.
-- `seen_events.json`: Local storage to prevent duplicate alerts.
+- `scrapers/`: myumbc_scraper, registrar_scraper, umbc_events_scraper
+- `utils/`: food_detector, notifier
+- `main.py`: Orchestrates all scrapers and saves to Supabase

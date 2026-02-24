@@ -104,6 +104,35 @@ h1 .highlight {
     font-weight: 300;
 }
 
+/* Tabs */
+.tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.tab-btn {
+    padding: 0.75rem 1.5rem;
+    border: 1px solid var(--card-border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.tab-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+.tab-btn.active {
+    background: rgba(253, 181, 21, 0.2);
+    color: var(--umbc-gold);
+    border-color: rgba(253, 181, 21, 0.4);
+}
+
 .controls {
     display: flex;
     justify-content: center;
@@ -244,6 +273,23 @@ h1 .highlight {
     font-size: 0.8rem;
     font-weight: 600;
     border: 1px solid rgba(253, 181, 21, 0.3);
+}
+.date-badge {
+    background: rgba(234, 0, 42, 0.15);
+    color: var(--umbc-red);
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid rgba(234, 0, 42, 0.3);
+}
+.source-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
 }
 
 .card-link-icon {
