@@ -1,10 +1,4 @@
 {
-    "version": 2,
-    "name": "umbc-free-food-radar",
-    "builds": [
-        {
-            "src": "index.html",
-            "use": "@vercel/static"
-        }
-    ]
+  "version": 2,
+  "name": "umbc-free-food-radar"
 }
