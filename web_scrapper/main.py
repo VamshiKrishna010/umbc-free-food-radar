@@ -7,6 +7,18 @@ from scrapers.campuslife_scraper import CampusLifeScraper
 from scrapers.seb_scraper import SEBScraper
 from scrapers.tickets_scraper import TicketsScraper
 from scrapers.sbs_scraper import SBSScraper
+# New scrapers
+from scrapers.studentaffairs_scraper import StudentAffairsScraper
+from scrapers.careers_scraper import CareersScraper
+from scrapers.library_scraper import LibraryScraper
+from scrapers.athletics_scraper import AthleticsScraper
+from scrapers.physics_scraper import PhysicsScraper
+from scrapers.biology_scraper import BiologyScraper
+from scrapers.mathstat_scraper import MathStatScraper
+from scrapers.department_seminar_scraper import DepartmentSeminarScraper
+from scrapers.dining_scraper import DiningScraper
+from scrapers.official_dates_scraper import OfficialDatesScraper
+from scrapers.gradschool_scraper import GradSchoolScraper
 from utils.notifier import DiscordNotifier
 from dotenv import load_dotenv
 
@@ -68,7 +80,7 @@ def save_events(events_list):
     try:
         for event in events_list:
             row = {
-                "id": event.get("link", event.get("id", "")),
+                "id": event.get("id") or event.get("link", ""),
                 "title": event.get("title", ""),
                 "date": event.get("date", ""),
                 "description": event.get("description", ""),
@@ -89,8 +101,8 @@ def main():
     seen_ids = load_seen_ids()
     all_events = []
 
-    # 1. Important dates (Registrar + SBS billing)
-    print("Scraping important dates (Registrar, SBS)...")
+    # 1. Important dates (Registrar + SBS billing + Official Dates)
+    print("Scraping important dates (Registrar, SBS, Official Dates)...")
     try:
         registrar = RegistrarScraper()
         important_dates = registrar.scrape()
@@ -108,9 +120,17 @@ def main():
             all_events.append(date_item)
     except Exception as e:
         print(f"  [ERROR] SBS scraper failed: {e}")
+    try:
+        official_dates = OfficialDatesScraper()
+        for date_item in official_dates.scrape():
+            date_item["category"] = CATEGORY_IMPORTANT_DATE
+            date_item["id"] = date_item.get("link", "") + "#" + date_item.get("title", "")[:50]
+            all_events.append(date_item)
+    except Exception as e:
+        print(f"  [ERROR] Official Dates scraper failed: {e}")
 
-    # 2. Food events from myUMBC and Retriever Essentials
-    print("Scraping food events...")
+    # 2. Food events from myUMBC, Dining, and Retriever Essentials
+    print("Scraping food events (myUMBC, Dining)...")
     food_links = set()
     for url in FOOD_EVENT_URLS:
         try:
@@ -128,6 +148,20 @@ def main():
                 all_events.append(ev)
                 if ev["id"] not in seen_ids:
                     discord_notifier.notify(ev)
+
+    # Dining events (filter for food)
+    try:
+        dining = DiningScraper()
+        for ev in dining.filter_food_events(dining.scrape()):
+            ev["category"] = CATEGORY_FOOD_EVENT
+            ev["id"] = ev.get("link", "")
+            if ev["id"] not in food_links:
+                food_links.add(ev["id"])
+                all_events.append(ev)
+                if ev["id"] not in seen_ids:
+                    discord_notifier.notify(ev)
+    except Exception as e:
+        print(f"  [ERROR] Dining scraper failed: {e}")
 
     # Retriever Essentials (permanent)
     retriever_events = [
@@ -182,8 +216,9 @@ def main():
                 all_events.append(ev)
     campus_seen.update(e.get("link") for e in all_events if e.get("category") == CATEGORY_CAMPUS_EVENT)
 
-    # 4. Campus events from myUMBC, umbc.edu, campuslife, tickets
-    print("Scraping campus events (myUMBC, UMBC events, Campus Life, Tickets)...")
+    # 4. Campus events from myUMBC, umbc.edu, campuslife, tickets + all new sources
+    print("Scraping campus events (myUMBC, UMBC Events, Campus Life, Tickets, Student Affairs,")
+    print("  Careers, Library, Athletics, Physics, Biology, Math/Stat, Dept Seminars, Grad School)...")
     for url in ["https://my.umbc.edu/events"]:
         try:
             scraper = MyUMBCScraper(url)
@@ -197,7 +232,22 @@ def main():
                     all_events.append(ev)
         except Exception as e:
             print(f"  [ERROR] myUMBC campus ({url}) failed: {e}")
-    for scraper_class, name in [(UMBCEventsScraper, "UMBC Events"), (CampusLifeScraper, "Campus Life"), (TicketsScraper, "Tickets")]:
+
+    campus_scrapers = [
+        (UMBCEventsScraper,        "UMBC Events"),
+        (CampusLifeScraper,        "Campus Life"),
+        (TicketsScraper,           "Tickets"),
+        (StudentAffairsScraper,    "Student Affairs"),
+        (CareersScraper,           "Career Center"),
+        (LibraryScraper,           "Library"),
+        (AthleticsScraper,         "Athletics"),
+        (PhysicsScraper,           "Physics"),
+        (BiologyScraper,           "Biology"),
+        (MathStatScraper,          "Math & Statistics"),
+        (DepartmentSeminarScraper, "Dept Seminars (CS/GES/Research)"),
+        (GradSchoolScraper,        "Grad School / GSA"),
+    ]
+    for scraper_class, name in campus_scrapers:
         try:
             for ev in scraper_class().scrape():
                 ev["category"] = CATEGORY_CAMPUS_EVENT
