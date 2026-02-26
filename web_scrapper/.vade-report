@@ -1,0 +1,46 @@
+# Vercel Speed Insights Implementation
+
+## Summary
+Successfully implemented Vercel Speed Insights for the UMBC Food Radar project following the HTML framework guidelines.
+
+## Changes Made
+
+### Modified Files:
+- **web_scrapper/index.html** - Added Speed Insights tracking scripts
+
+## Implementation Details
+
+Since this is a static HTML/Python project without a JavaScript framework, I implemented the HTML-based approach for Speed Insights:
+
+1. Added the Speed Insights initialization script before the closing `</body>` tag
+2. The implementation includes:
+   - `window.si` initialization function to queue Speed Insights calls
+   - Deferred loading of `/_vercel/speed-insights/script.js`
+
+The scripts were placed after the main `script.js` and before the closing body tag to ensure proper page load performance tracking.
+
+## Technical Notes
+
+- **Framework**: HTML (static site)
+- **No package dependencies**: The HTML implementation doesn't require installing `@vercel/speed-insights` npm package
+- **Vercel integration**: The `/_vercel/speed-insights/script.js` route will be automatically available after the next deployment to Vercel
+- **Existing Analytics**: The project already has Vercel Web Analytics installed (visible in the `<head>` section), and Speed Insights has been added alongside it
+
+## Next Steps for Deployment
+
+1. Enable Speed Insights in the Vercel dashboard:
+   - Go to Project Settings → Speed Insights
+   - Click "Enable" to activate the feature
+   
+2. Deploy the updated code to Vercel:
+   ```bash
+   vercel deploy
+   ```
+
+3. After deployment, verify the Speed Insights script is loaded by:
+   - Checking for `/_vercel/speed-insights/script.js` in the page source
+   - Viewing the Speed Insights tab in the Vercel dashboard after users visit the site
+
+## Why This Approach?
+
+The HTML script-based implementation is the recommended approach for static HTML sites and requires no build process or package installation. It provides the same performance tracking capabilities as the framework-specific packages while maintaining the simplicity of the current static site setup.
