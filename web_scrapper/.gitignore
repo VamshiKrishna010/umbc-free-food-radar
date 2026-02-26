@@ -17,5 +17,10 @@ venv/
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
+
+# Scraper runtime data (regenerated on every run)
+events_data.json
+seen_events.json
