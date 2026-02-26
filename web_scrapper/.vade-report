@@ -1,0 +1,32 @@
+# Vercel Speed Insights Implementation
+
+## Summary
+Successfully implemented Vercel Speed Insights for the UMBC Food Radar static HTML website.
+
+## Changes Made
+
+### Modified Files:
+- **web_scrapper/index.html** - Added Vercel Speed Insights tracking scripts
+
+## Implementation Details
+
+Since this is an HTML/JavaScript static site project deployed on Vercel, I followed the HTML framework implementation pattern from the Vercel Speed Insights documentation:
+
+1. **Added Speed Insights Script Tags**: Added two script tags before the closing `</body>` tag in `index.html`:
+   - First script: Initializes the `window.si` function to queue Speed Insights events
+   - Second script: Loads the Speed Insights tracking script from `/_vercel/speed-insights/script.js` with defer attribute
+
+The implementation follows the exact pattern recommended in the Vercel documentation for HTML sites and is placed alongside the existing Vercel Web Analytics script that was already in the project.
+
+## Notes
+- No package installation was required for the HTML implementation (as noted in the documentation)
+- The Speed Insights script will be automatically available at `/_vercel/speed-insights/script.js` after the next deployment to Vercel
+- Speed Insights must be enabled in the Vercel dashboard project settings for the tracking to work
+- The implementation is non-blocking (uses `defer` attribute) to avoid impacting page load performance
+- This implementation will start tracking Core Web Vitals metrics (LCP, FID, CLS, FCP, TTFB, INP) once deployed
+
+## Next Steps for User
+1. Enable Speed Insights in the Vercel dashboard (Project Settings → Speed Insights → Enable)
+2. Deploy this change to Vercel
+3. After deployment, verify the script loads by checking for `/_vercel/speed-insights/script.js` in the page source
+4. View metrics in the Vercel dashboard after visitors start using the site
