@@ -25,6 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(FAVORITES_KEY, JSON.stringify([...fav]));
     }
     function isFavorite(id) { return getFavorites().has(id); }
+    // Sanitize: encode HTML entities to prevent XSS from Supabase data
+    function sanitize(str) {
+        const div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
     let lastFetchTime = null;
     let touchStartY = 0;
 
@@ -244,11 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const foodKeyword = event.food_keyword || '';
             let badge = '';
             if (category === 'important_date') {
-                badge = `<span class="date-badge">${event.source || 'Registrar'}</span>`;
+                badge = `<span class="date-badge">${sanitize(event.source || 'Registrar')}</span>`;
             } else if (category === 'food_event' && foodKeyword) {
-                badge = `<span class="keyword-badge">${foodKeyword.toUpperCase()}</span>`;
+                badge = `<span class="keyword-badge">${sanitize(foodKeyword.toUpperCase())}</span>`;
             } else {
-                badge = `<span class="source-badge">${event.source || 'Event'}</span>`;
+                badge = `<span class="source-badge">${sanitize(event.source || 'Event')}</span>`;
             }
             const addCalUrl = generateIcsUrl(event);
             const safeTitle = (event.title || 'event').replace(/[^\w\s\-]/g, '').slice(0, 30);
@@ -258,10 +264,10 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.innerHTML = `
                 <div class="event-card" style="animation: fadeUp 0.5s ease backwards ${index * 0.08}s">
                     <div class="event-card-header">
-                        <a href="${detailUrl}" class="event-card-link">
-                            <div class="event-date">${event.date || 'TBA'}</div>
-                            <h2 class="event-title">${event.title || 'Untitled'}</h2>
-                            <div class="event-desc">${desc}</div>
+                        <a href="${sanitize(detailUrl)}" class="event-card-link">
+                            <div class="event-date">${sanitize(event.date || 'TBA')}</div>
+                            <h2 class="event-title">${sanitize(event.title || 'Untitled')}</h2>
+                            <div class="event-desc">${sanitize(desc)}</div>
                         </a>
                         <button type="button" class="fav-btn ${fav ? 'active' : ''}" title="${fav ? 'Remove from favorites' : 'Add to favorites'}">❤</button>
                     </div>
@@ -270,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="event-actions">
                             <button type="button" class="share-btn" title="Share">Share</button>
                             <button type="button" class="add-cal-btn" title="Add to calendar">+ Cal</button>
-                            <a href="${detailUrl}" class="card-link-icon detail-nav" title="View details">↗</a>
+                            <a href="${sanitize(detailUrl)}" class="card-link-icon detail-nav" title="View details">↗</a>
                         </div>
                     </div>
                 </div>
