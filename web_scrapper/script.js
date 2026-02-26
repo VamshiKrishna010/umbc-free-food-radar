@@ -201,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (selectedDateRange === 'month') max = now + 30 * day;
             list = list.filter(e => {
                 const t = parseDateForSort(e.date);
+                if (t === 0) return true; // ongoing/TBA/recurring - always include
                 return t > 0 && t < Infinity && t >= now && t <= max;
             });
         }
