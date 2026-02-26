@@ -34,13 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function parseDateForSort(str) {
         if (!str) return Infinity;
         const s = String(str).toLowerCase();
-        const months = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
+        const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
         const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
         if (m) return new Date(parseInt(m[3]) > 50 ? 1900 + parseInt(m[3]) : 2000 + parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2])).getTime();
         const m2 = s.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i);
         if (m2) {
             const yr = (s.match(/\d{4}/) || [String(new Date().getFullYear())])[0];
-            return new Date(parseInt(yr), months[m2[1].toLowerCase().slice(0,3)] || 0, parseInt(m2[2]) || 1).getTime();
+            return new Date(parseInt(yr), months[m2[1].toLowerCase().slice(0, 3)] || 0, parseInt(m2[2]) || 1).getTime();
         }
         const m3 = s.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
         if (m3) return Date.now();
@@ -121,9 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getCategoryCounts() {
         return {
-            important_date: allEvents.filter(e => (e.category || '') === 'important_date').length,
-            food_event: allEvents.filter(e => (e.category || '') === 'food_event').length,
-            campus_event: allEvents.filter(e => (e.category || '') === 'campus_event').length,
+            important_date: allEvents.filter(e => (e.category || 'campus_event') === 'important_date').length,
+            food_event: allEvents.filter(e => (e.category || 'campus_event') === 'food_event').length,
+            campus_event: allEvents.filter(e => (e.category || 'campus_event') === 'campus_event').length,
             favorites: getFavorites().size,
         };
     }
@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const text = `${event.title || 'Event'} - ${event.date || ''}`;
                 const url = event.link || window.location.href;
                 if (navigator.share) {
-                    navigator.share({ title: event.title, text, url }).catch(() => {});
+                    navigator.share({ title: event.title, text, url }).catch(() => { });
                 } else {
                     navigator.clipboard.writeText(url).then(() => { shareBtn.textContent = 'Copied!'; setTimeout(() => shareBtn.textContent = 'Share', 1500); });
                 }
