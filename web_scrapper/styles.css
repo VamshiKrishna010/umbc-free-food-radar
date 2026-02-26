@@ -459,21 +459,25 @@ h1 .highlight {
 .fav-btn {
     background: none;
     border: none;
-    font-size: 1.2rem;
+    font-size: 1.26rem;
     cursor: pointer;
-    opacity: 0.4;
+    opacity: 0.65;
     padding: 0.25rem;
-    transition: all 0.2s;
+    line-height: 1;
+    transition: opacity 0.2s ease, transform 0.2s ease;
     flex-shrink: 0;
+    color: #ffffff;
 }
 
 .fav-btn:hover {
-    opacity: 0.8;
+    opacity: 1;
+    transform: scale(1.15);
 }
 
 .fav-btn.active {
     opacity: 1;
     color: var(--umbc-red);
+    transform: scale(1.1);
 }
 
 .share-btn {

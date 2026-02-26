@@ -244,22 +244,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const safeTitle = (event.title || 'event').replace(/[^\w\s\-]/g, '').slice(0, 30);
             const eventId = event.link || event.id || '';
             const fav = isFavorite(eventId);
+            const detailUrl = `event.html?id=${encodeURIComponent(eventId)}`;
             wrapper.innerHTML = `
                 <div class="event-card" style="animation: fadeUp 0.5s ease backwards ${index * 0.08}s">
                     <div class="event-card-header">
-                        <a href="${event.link || '#'}" target="_blank" rel="noopener" class="event-card-link">
+                        <a href="${detailUrl}" class="event-card-link">
                             <div class="event-date">${event.date || 'TBA'}</div>
                             <h2 class="event-title">${event.title || 'Untitled'}</h2>
                             <div class="event-desc">${desc}</div>
                         </a>
-                        <button type="button" class="fav-btn ${fav ? 'active' : ''}" title="${fav ? 'Remove from favorites' : 'Add to favorites'}">♥</button>
+                        <button type="button" class="fav-btn ${fav ? 'active' : ''}" title="${fav ? 'Remove from favorites' : 'Add to favorites'}">❤</button>
                     </div>
                     <div class="event-footer">
                         ${badge}
                         <div class="event-actions">
                             <button type="button" class="share-btn" title="Share">Share</button>
                             <button type="button" class="add-cal-btn" title="Add to calendar">+ Cal</button>
-                            <a href="${event.link || '#'}" target="_blank" rel="noopener" class="card-link-icon">↗</a>
+                            <a href="${detailUrl}" class="card-link-icon detail-nav" title="View details">↗</a>
                         </div>
                     </div>
                 </div>
@@ -293,6 +294,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 a.href = addCalUrl;
                 a.download = safeTitle + '.ics';
                 a.click();
+            });
+            // Cache event data so event.html loads instantly without a Supabase round-trip
+            wrapper.querySelectorAll('.detail-nav, .event-card-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    sessionStorage.setItem('umbc_event_detail', JSON.stringify(event));
+                });
             });
             eventsGrid.appendChild(wrapper);
         });
