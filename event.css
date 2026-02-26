@@ -1,0 +1,224 @@
+/* ========================================
+   Event Detail Page Styles
+   ======================================== */
+
+.event-detail-container {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* Back Button */
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-family: var(--font-body);
+    transition: color 0.2s ease, gap 0.2s ease;
+    width: fit-content;
+}
+
+.back-btn:hover {
+    color: var(--umbc-gold);
+    gap: 0.75rem;
+}
+
+.back-arrow {
+    font-size: 1.1rem;
+    transition: transform 0.2s ease;
+}
+
+.back-btn:hover .back-arrow {
+    transform: translateX(-4px);
+}
+
+/* Skeleton loading for detail page */
+.detail-skeleton {
+    padding: 2.5rem;
+    gap: 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Meta row: badge + source */
+.detail-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.detail-badge {
+    display: inline-block;
+}
+
+/* Title */
+.detail-title {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 2.4rem;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* Info Grid */
+.detail-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.detail-info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.detail-info-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+.detail-info-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+
+.detail-info-value {
+    font-size: 1rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+/* Description */
+.detail-description-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.detail-section-title {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.detail-description {
+    font-size: 1.05rem;
+    color: var(--text-primary);
+    line-height: 1.75;
+    white-space: pre-wrap;
+}
+
+/* Action Buttons Row */
+.detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.detail-action-btn {
+    padding: 0.7rem 1.4rem;
+    border-radius: 12px;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid transparent;
+}
+
+.detail-action-btn.primary {
+    background: linear-gradient(135deg, var(--umbc-gold), #ffce47);
+    color: #0a0a0f;
+    font-weight: 700;
+}
+
+.detail-action-btn.primary:hover {
+    box-shadow: 0 4px 15px rgba(253, 181, 21, 0.4);
+    transform: translateY(-2px);
+}
+
+.detail-action-btn.secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    border-color: var(--card-border);
+}
+
+.detail-action-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+#detail-fav-btn {
+    font-size: 1.1rem;
+}
+
+#detail-fav-btn.active {
+    color: var(--umbc-red);
+    border-color: rgba(234, 0, 42, 0.3);
+    background: rgba(234, 0, 42, 0.08);
+}
+
+/* Error state */
+.detail-error {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* Loading */
+.detail-loading {
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    .event-detail-container {
+        padding: 1.5rem 1rem 3rem;
+    }
+
+    .detail-title {
+        font-size: 1.8rem;
+    }
+
+    .detail-actions {
+        flex-direction: column;
+    }
+
+    .detail-action-btn {
+        justify-content: center;
+    }
+}
