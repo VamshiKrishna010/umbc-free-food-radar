@@ -1,17 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#fdb515">
-    <meta name="description" content="Important dates, free food &amp; campus events at UMBC. One place for Registrar, myUMBC, SEB, SBS &amp; more.">
+    <meta name="description"
+        content="Important dates, free food &amp; campus events at UMBC. One place for Registrar, myUMBC, SEB, SBS &amp; more.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <title>UMBC Food Radar - Important Dates, Free Food &amp; Campus Events</title>
     <!-- Google Fonts for Modern Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <!-- Vercel Web Analytics -->
     <script>
@@ -19,17 +23,19 @@
     </script>
     <script defer src="/_vercel/insights/script.js"></script>
 </head>
+
 <body>
-    
+
     <div class="app-background">
         <!-- Abstract glowing orbs behind the content -->
         <div class="orb orb-1"></div>
         <div class="orb orb-2"></div>
-        
+
         <div class="container">
             <header>
                 <h1>UMBC <span class="highlight">Food Radar</span></h1>
-                <p class="subtitle">Important dates, free food, campus events — from Registrar, myUMBC, SEB, SBS, Campus Life &amp; more.</p>
+                <p class="subtitle">Important dates, free food, campus events — from Registrar, myUMBC, SEB, SBS, Campus
+                    Life &amp; more.</p>
             </header>
 
             <nav class="tabs">
@@ -51,14 +57,15 @@
                     <div id="source-filter" class="source-filter"></div>
                     <div class="custom-select-wrapper" id="date-range-wrapper">
                         <div class="custom-select-trigger" id="date-range-trigger">
-                            <span id="date-range-label">All dates</span>
+                            <span id="date-range-label">Upcoming</span>
                             <span class="custom-select-icon">▼</span>
                         </div>
                         <div class="custom-select-options" id="date-range-options">
-                            <div class="custom-option selected" data-value="all">All dates</div>
+                            <div class="custom-option selected" data-value="all">Upcoming</div>
                             <div class="custom-option" data-value="week">This week</div>
                             <div class="custom-option" data-value="7days">Next 7 days</div>
                             <div class="custom-option" data-value="month">This month</div>
+                            <div class="custom-option" data-value="past">Include past</div>
                         </div>
                     </div>
                 </div>
@@ -69,18 +76,20 @@
                     <div class="loading">Scanning campus for free food...</div>
                 </div>
             </main>
-            
+
             <footer>
-                <p>Data from Registrar, myUMBC, SEB, SBS, Campus Life, Tickets, Retriever Essentials. Updates every 30 minutes.</p>
+                <p>Data from Registrar, myUMBC, SEB, SBS, Campus Life, Tickets, Retriever Essentials. Updates every 30
+                    minutes.</p>
             </footer>
         </div>
     </div>
 
     <script src="script.js"></script>
     <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
-      }
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => { });
+        }
     </script>
 </body>
+
 </html>
