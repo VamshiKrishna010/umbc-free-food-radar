@@ -195,9 +195,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 return t.includes(term) || d.includes(term) || k.includes(term) || s.includes(term);
             });
         }
-        if (selectedDateRange !== 'all') {
-            const now = Date.now();
-            const day = 86400000;
+        const now = Date.now();
+        const day = 86400000;
+        const todayStart = now - day; // 1-day buffer so today's events always show
+
+        if (selectedDateRange === 'all') {
+            // Default: hide past events, show upcoming + ongoing
+            list = list.filter(e => {
+                const t = parseDateForSort(e.date);
+                if (t === 0 || t === Infinity) return true; // ongoing / TBA / unparseable
+                return t >= todayStart;
+            });
+        } else if (selectedDateRange !== 'past') {
             let max = now + 7 * day;
             if (selectedDateRange === 'week') max = now + 7 * day;
             else if (selectedDateRange === '7days') max = now + 7 * day;
@@ -205,9 +214,10 @@ document.addEventListener('DOMContentLoaded', () => {
             list = list.filter(e => {
                 const t = parseDateForSort(e.date);
                 if (t === 0) return true; // ongoing/TBA/recurring - always include
-                return t > 0 && t < Infinity && t >= now && t <= max;
+                return t > 0 && t < Infinity && t >= todayStart && t <= max;
             });
         }
+        // selectedDateRange === 'past' → no filter, show everything including old events
         return sortByDate(list);
     }
 
