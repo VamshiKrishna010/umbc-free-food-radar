@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (selectedDateRange === 'month') max = now + 30 * day;
             list = list.filter(e => {
                 const t = parseDateForSort(e.date);
-                return t > 0 && t < Infinity && t <= max;
+                return t > 0 && t < Infinity && t >= now && t <= max;
             });
         }
         return sortByDate(list);
