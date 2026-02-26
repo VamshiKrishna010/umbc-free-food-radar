@@ -49,12 +49,18 @@
                 </div>
                 <div class="filter-row">
                     <div id="source-filter" class="source-filter"></div>
-                    <select id="date-range-filter" class="date-range-filter">
-                        <option value="all">All dates</option>
-                        <option value="week">This week</option>
-                        <option value="7days">Next 7 days</option>
-                        <option value="month">This month</option>
-                    </select>
+                    <div class="custom-select-wrapper" id="date-range-wrapper">
+                        <div class="custom-select-trigger" id="date-range-trigger">
+                            <span id="date-range-label">All dates</span>
+                            <span class="custom-select-icon">▼</span>
+                        </div>
+                        <div class="custom-select-options" id="date-range-options">
+                            <div class="custom-option selected" data-value="all">All dates</div>
+                            <div class="custom-option" data-value="week">This week</div>
+                            <div class="custom-option" data-value="7days">Next 7 days</div>
+                            <div class="custom-option" data-value="month">This month</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="pull-indicator" class="pull-indicator">Pull to refresh</div>

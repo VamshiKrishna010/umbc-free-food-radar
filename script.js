@@ -5,7 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const sourceFilterEl = document.getElementById('source-filter');
     const lastUpdatedEl = document.getElementById('last-updated');
     const pullIndicator = document.getElementById('pull-indicator');
-    const dateRangeEl = document.getElementById('date-range-filter');
+    const dateRangeWrapper = document.getElementById('date-range-wrapper');
+    const dateRangeTrigger = document.getElementById('date-range-trigger');
+    const dateRangeLabel = document.getElementById('date-range-label');
+    const dateRangeOptions = document.querySelectorAll('.custom-option');
     let allEvents = [];
     let activeTab = 'important_date';
     let selectedSource = 'all';
@@ -307,9 +310,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     searchInput?.addEventListener('input', () => renderTabContent());
-    dateRangeEl?.addEventListener('change', (e) => {
-        selectedDateRange = e.target.value;
-        renderTabContent();
+    // Custom Dropdown Logic
+    dateRangeTrigger?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dateRangeWrapper.classList.toggle('open');
+    });
+
+    dateRangeOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            dateRangeOptions.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+            selectedDateRange = option.dataset.value;
+            dateRangeLabel.textContent = option.textContent;
+            dateRangeWrapper.classList.remove('open');
+            renderTabContent();
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (dateRangeWrapper && !dateRangeWrapper.contains(e.target)) {
+            dateRangeWrapper.classList.remove('open');
+        }
     });
 
     function setupPullToRefresh() {
@@ -332,6 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { passive: true });
     }
     setupPullToRefresh();
+
+    // Auto-refresh every 30 minutes to pick up new scraper data
+    setInterval(() => fetchEvents(false), 30 * 60 * 1000);
 
     const style = document.createElement('style');
     style.textContent = `
