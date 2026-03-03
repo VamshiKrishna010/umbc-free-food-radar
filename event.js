@@ -1,7 +1,6 @@
 /* event.js — UMBC Food Radar Event Detail Page */
 (function () {
-    const SUPABASE_URL = 'https://thphtswaxlzpcipklhuy.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Dat2eljf5Zp07VSSjhzTDw_oOc6WOFD';
+    const API_BASE = '/api';
     const FAVORITES_KEY = 'umbc_food_radar_favorites';
 
     // --- Helpers ---
@@ -166,13 +165,8 @@
 
         // Fetch from Supabase by matching link or id column
         try {
-            const url = `${SUPABASE_URL}/rest/v1/events?or=(link.eq.${encodeURIComponent(eventId)},id.eq.${encodeURIComponent(eventId)})&limit=1`;
-            const response = await fetch(url, {
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_KEY}`
-                }
-            });
+            const url = `${API_BASE}/events?id=${encodeURIComponent(eventId)}`;
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Fetch failed');
             const data = await response.json();
             if (!data || data.length === 0) throw new Error('Not found');
