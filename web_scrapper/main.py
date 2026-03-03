@@ -52,6 +52,18 @@ CATEGORY_IMPORTANT_DATE = "important_date"
 CATEGORY_FOOD_EVENT = "food_event"
 CATEGORY_CAMPUS_EVENT = "campus_event"
 
+_LOCALIST_EVENT_ID_RE = re.compile(r"/events?/event/(\d+)", re.I)
+
+
+def normalize_event_id(link: str) -> str:
+    """Normalize event IDs so shared Localist events dedupe across UMBC sites."""
+    if not link:
+        return ""
+    match = _LOCALIST_EVENT_ID_RE.search(link)
+    if match:
+        return f"localist:{match.group(1)}"
+    return link
+
 
 def load_seen_ids():
     if supabase is None:
@@ -96,9 +108,68 @@ def _is_valid_event(event: dict) -> bool:
     return True
 
 
+def _dedupe_events(events_list: list) -> list:
+    """Final safety-net dedup: keep first occurrence by ID, then by title+date fingerprint."""
+    seen_ids = set()
+    seen_fingerprints = set()
+    unique = []
+    for ev in events_list:
+        eid = ev.get("id") or ev.get("link", "")
+        if eid in seen_ids:
+            continue
+        seen_ids.add(eid)
+        title_norm = re.sub(r"\s+", " ", (ev.get("title") or "").strip().lower())
+        date_norm = re.sub(r"\s+", " ", (ev.get("date") or "").strip().lower())
+        fp = f"{title_norm}||{date_norm}"
+        if fp in seen_fingerprints:
+            continue
+        seen_fingerprints.add(fp)
+        unique.append(ev)
+    dropped = len(events_list) - len(unique)
+    if dropped:
+        print(f"  Dedup pass removed {dropped} duplicate(s)")
+    return unique
+
+
+def _cleanup_stale_duplicates():
+    """Remove old Supabase rows whose IDs are raw Localist URLs now covered by a normalized ID."""
+    if supabase is None:
+        return
+    try:
+        rows = supabase.table("events").select("id, link").execute().data
+    except Exception as e:
+        print(f"  [CLEANUP] Failed to read events: {e}")
+        return
+
+    normalized_ids = set()
+    stale_ids = []
+    for row in rows:
+        rid = row.get("id", "")
+        link = row.get("link", "")
+        nid = normalize_event_id(link) if link else rid
+        if nid != rid and nid.startswith("localist:"):
+            if nid in normalized_ids:
+                stale_ids.append(rid)
+            else:
+                normalized_ids.add(nid)
+                stale_ids.append(rid)
+        else:
+            normalized_ids.add(rid)
+
+    if not stale_ids:
+        return
+    print(f"  [CLEANUP] Removing {len(stale_ids)} stale duplicate row(s) from Supabase...")
+    for sid in stale_ids:
+        try:
+            supabase.table("events").delete().eq("id", sid).execute()
+        except Exception as e:
+            print(f"  [CLEANUP] Failed to delete {sid}: {e}")
+
+
 def save_events(events_list):
     if supabase is None:
         return
+    events_list = _dedupe_events(events_list)
     now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     skipped = 0
     try:
@@ -122,6 +193,7 @@ def save_events(events_list):
         print(f"Error saving events: {e}")
     if skipped:
         print(f"  Skipped {skipped} invalid/placeholder events")
+    _cleanup_stale_duplicates()
 
 
 def main():
@@ -171,7 +243,7 @@ def main():
             continue
         for ev in food_events:
             ev["category"] = CATEGORY_FOOD_EVENT
-            ev["id"] = ev.get("link", "")
+            ev["id"] = normalize_event_id(ev.get("link", ""))
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
@@ -183,7 +255,7 @@ def main():
         dining = DiningScraper()
         for ev in dining.filter_food_events(dining.scrape()):
             ev["category"] = CATEGORY_FOOD_EVENT
-            ev["id"] = ev.get("link", "")
+            ev["id"] = normalize_event_id(ev.get("link", ""))
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
@@ -228,9 +300,10 @@ def main():
         print(f"  [ERROR] SEB scraper failed: {e}")
         seb_events = []
         seb_food = []
+    seb_food_ids = {normalize_event_id(e.get("link", "")) for e in seb_food}
     for ev in seb_events:
-        ev["id"] = ev.get("link", "")
-        if ev in seb_food:
+        ev["id"] = normalize_event_id(ev.get("link", ""))
+        if ev["id"] in seb_food_ids:
             ev["category"] = CATEGORY_FOOD_EVENT
             ev["food_keyword"] = ev.get("food_keyword", "free food")
             if ev["id"] not in food_links:
@@ -243,7 +316,11 @@ def main():
             if ev["id"] not in campus_seen:
                 campus_seen.add(ev["id"])
                 all_events.append(ev)
-    campus_seen.update(e.get("link") for e in all_events if e.get("category") == CATEGORY_CAMPUS_EVENT)
+    campus_seen.update(
+        e.get("id")
+        for e in all_events
+        if e.get("category") == CATEGORY_CAMPUS_EVENT and e.get("id")
+    )
 
     # 4. Campus events from myUMBC, umbc.edu, campuslife, tickets + all new sources
     print("Scraping campus events (myUMBC, UMBC Events, Campus Life, Tickets, Student Affairs,")
@@ -252,10 +329,10 @@ def main():
         try:
             scraper = MyUMBCScraper(url)
             for ev in scraper.scrape():
-                if ev.get("link") in food_links:
+                ev["id"] = normalize_event_id(ev.get("link", ""))
+                if ev["id"] in food_links:
                     continue
                 ev["category"] = CATEGORY_CAMPUS_EVENT
-                ev["id"] = ev.get("link", "")
                 if ev["id"] not in campus_seen:
                     campus_seen.add(ev["id"])
                     all_events.append(ev)
@@ -280,7 +357,7 @@ def main():
         try:
             for ev in scraper_class().scrape():
                 ev["category"] = CATEGORY_CAMPUS_EVENT
-                ev["id"] = ev.get("link", "")
+                ev["id"] = normalize_event_id(ev.get("link", ""))
                 if ev["id"] not in campus_seen:
                     campus_seen.add(ev["id"])
                     all_events.append(ev)
@@ -296,9 +373,10 @@ def main():
             scraper = MyUMBCGroupScraper(group_url, source_name=name)
             group_events = scraper.scrape()
             food_from_group = scraper.filter_food_events(group_events)
+            food_from_group_ids = {normalize_event_id(e.get("link", "")) for e in food_from_group}
             for ev in group_events:
-                ev["id"] = ev.get("link", "")
-                if ev in food_from_group:
+                ev["id"] = normalize_event_id(ev.get("link", ""))
+                if ev["id"] in food_from_group_ids:
                     ev["category"] = CATEGORY_FOOD_EVENT
                     if ev["id"] not in food_links:
                         food_links.add(ev["id"])

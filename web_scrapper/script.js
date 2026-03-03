@@ -31,11 +31,24 @@ document.addEventListener('DOMContentLoaded', () => {
         div.textContent = str || '';
         return div.innerHTML;
     }
+    function dedupeEvents(events) {
+        const seen = new Set();
+        return events.filter(e => {
+            const localistMatch = (e.link || '').match(/\/events?\/event\/(\d+)/i);
+            const nid = localistMatch ? `localist:${localistMatch[1]}` : (e.id || e.link || '');
+            if (seen.has(nid)) return false;
+            seen.add(nid);
+            const fp = `${(e.title || '').trim().toLowerCase()}||${(e.date || '').trim().toLowerCase()}`;
+            if (seen.has(fp)) return false;
+            seen.add(fp);
+            return true;
+        });
+    }
+
     let lastFetchTime = null;
     let touchStartY = 0;
 
-    const SUPABASE_URL = 'https://thphtswaxlzpcipklhuy.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Dat2eljf5Zp07VSSjhzTDw_oOc6WOFD';
+    const API_BASE = '/api';
 
     function parseDateForSort(str) {
         if (!str) return Infinity;
@@ -97,17 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchEvents(showLoading = true) {
         if (showLoading) showSkeleton();
         try {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*`, {
-                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-            });
+            const response = await fetch(`${API_BASE}/events`);
             if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
             const _JUNK_TITLES = new Set(['no title', 'untitled', 'untitled event', '']);
             const _JUNK_DESCS = new Set(['view more', 'featured events view more', 'weekend view more']);
-            allEvents = (await response.json()).filter(e => {
+            allEvents = dedupeEvents((await response.json()).filter(e => {
                 const t = (e.title || '').trim().toLowerCase();
                 const d = (e.description || '').trim().toLowerCase();
                 return !_JUNK_TITLES.has(t) && !_JUNK_DESCS.has(d);
-            });
+            }));
             lastFetchTime = Date.now();
             updateLastUpdated();
             renderTabContent();

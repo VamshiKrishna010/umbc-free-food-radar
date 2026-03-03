@@ -29,7 +29,8 @@ Automated dashboard for UMBC: important dates, free food events, and campus acti
 
 3. **Configuration:**
    - Copy `.env.example` to `.env`
-   - Add `SUPABASE_URL`, `SUPABASE_KEY`, and optionally `DISCORD_WEBHOOK_URL` for alerts
+   - For the Python scraper, add `SUPABASE_URL`, `SUPABASE_KEY` (service role), and optionally `DISCORD_WEBHOOK_URL`
+   - For Vercel frontend proxy, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in Project Settings -> Environment Variables
 
 ## Usage
 ```bash
