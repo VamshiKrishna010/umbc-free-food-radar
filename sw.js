@@ -16,9 +16,39 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
-  // Never cache API calls so keyless proxy responses stay fresh.
+  // API calls are network-first with cache fallback for offline support.
   if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) {
-    e.respondWith(fetch(e.request));
+    // Keep non-GET methods network-only (no cache writes for mutable requests).
+    if (e.request.method !== 'GET') {
+      e.respondWith(fetch(e.request));
+      return;
+    }
+
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.match(e.request).then((cached) => {
+            if (cached) return cached;
+            return new Response(
+              JSON.stringify({ error: 'Offline and no cached data available' }),
+              {
+                status: 503,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cache-Control': 'no-store',
+                },
+              }
+            );
+          })
+        )
+    );
     return;
   }
 
@@ -38,19 +68,6 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  if (e.request.url.includes('supabase.co')) {
-    // Network-first: only cache successful responses to avoid storing errors or stale auth
-    e.respondWith(
-      fetch(e.request).then((res) => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => caches.match(e.request))
-    );
-    return;
-  }
   if (e.request.mode === 'navigate' || e.request.destination === 'document') {
     e.respondWith(
       fetch(e.request).catch(() =>

@@ -7,7 +7,7 @@ Automated dashboard for UMBC: important dates, free food events, and campus acti
 - **Free Food:** myUMBC, Retriever Essentials, Student Events Board (SEB)
 - **Campus Events:** myUMBC, umbc.edu/events, Campus Life (RAC), SEB, UMBC Tickets (athletics/arts)
 - **Discord Alerts:** New food events posted to Discord when `DISCORD_WEBHOOK_URL` is set
-- **PWA:** Installable on mobile; works offline with cached data
+- **PWA:** Installable on mobile; works offline with cached data (after at least one online load to warm API cache)
 - **Favorites, Share, Date filter:** Save events to favorites, share via Web Share API, filter by date range
 - **Auto-update:** GitHub Actions runs every 30 minutes
 
