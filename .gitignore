@@ -21,6 +21,15 @@ venv/
 *.swp
 *.swo
 
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # Scraper runtime data (regenerated on every run)
 events_data.json
 seen_events.json
+
+# Local auth/session cache
+.auth/

@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 from scrapers.myumbc_scraper import MyUMBCScraper
 from scrapers.registrar_scraper import RegistrarScraper
@@ -19,6 +20,7 @@ from scrapers.department_seminar_scraper import DepartmentSeminarScraper
 from scrapers.dining_scraper import DiningScraper
 from scrapers.official_dates_scraper import OfficialDatesScraper
 from scrapers.gradschool_scraper import GradSchoolScraper
+from scrapers.myumbc_group_scraper import MyUMBCGroupScraper
 from utils.notifier import DiscordNotifier
 from dotenv import load_dotenv
 
@@ -73,12 +75,37 @@ def load_existing_events():
     return []
 
 
+_PLACEHOLDER_TITLES = {
+    'no title', 'untitled', 'untitled event', 'event', '',
+    'view more', 'featured events', 'weekend', 'today',
+}
+
+
+def _is_valid_event(event: dict) -> bool:
+    """Reject placeholder / junk events before they reach Supabase."""
+    title = (event.get("title") or "").strip()
+    if title.lower() in _PLACEHOLDER_TITLES:
+        return False
+    if len(title) < 4:
+        return False
+    desc = (event.get("description") or "").strip()
+    if desc.lower() in {'view more', 'featured events view more', 'weekend view more', ''}:
+        return False
+    if re.match(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s', title) and len(title) < 15:
+        return False
+    return True
+
+
 def save_events(events_list):
     if supabase is None:
         return
     now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    skipped = 0
     try:
         for event in events_list:
+            if not _is_valid_event(event):
+                skipped += 1
+                continue
             row = {
                 "id": event.get("id") or event.get("link", ""),
                 "title": event.get("title", ""),
@@ -93,6 +120,8 @@ def save_events(events_list):
             supabase.table("events").upsert(row).execute()
     except Exception as e:
         print(f"Error saving events: {e}")
+    if skipped:
+        print(f"  Skipped {skipped} invalid/placeholder events")
 
 
 def main():
@@ -257,6 +286,30 @@ def main():
                     all_events.append(ev)
         except Exception as e:
             print(f"  [ERROR] {name} scraper failed: {e}")
+
+    # myUMBC student org groups
+    MYUMBC_GROUPS = [
+        ("https://my3.my.umbc.edu/groups/isa", "ISA (Indian Student Association)"),
+    ]
+    for group_url, name in MYUMBC_GROUPS:
+        try:
+            scraper = MyUMBCGroupScraper(group_url, source_name=name)
+            group_events = scraper.scrape()
+            food_from_group = scraper.filter_food_events(group_events)
+            for ev in group_events:
+                ev["id"] = ev.get("link", "")
+                if ev in food_from_group:
+                    ev["category"] = CATEGORY_FOOD_EVENT
+                    if ev["id"] not in food_links:
+                        food_links.add(ev["id"])
+                        all_events.append(ev)
+                else:
+                    ev["category"] = CATEGORY_CAMPUS_EVENT
+                    if ev["id"] not in campus_seen:
+                        campus_seen.add(ev["id"])
+                        all_events.append(ev)
+        except Exception as e:
+            print(f"  [ERROR] myUMBC group ({name}) failed: {e}")
 
     save_events(all_events)
     counts = {

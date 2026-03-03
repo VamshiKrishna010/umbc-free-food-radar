@@ -40,31 +40,20 @@ class CampusLifeScraper(BaseScraper):
     
     def _parse_page(self, soup) -> List[Dict]:
         events = []
+        seen_links = set()
         for a in soup.find_all("a", href=re.compile(r"/events/event/\d+")):
             href = a.get("href", "")
             link = href if href.startswith("http") else self.BASE_URL + href
-            container = a.find_parent(["article", "div"], class_=lambda x: x and "event" in str(x).lower())
-            if not container:
-                container = a.find_parent(["article", "div"])
-            if not container:
+            if link in seen_links:
                 continue
-            title_el = container.find(["h2", "h3"])
+            seen_links.add(link)
+
+            container = a.find_parent(["article", "div"])
+            title_el = container.find(["h2", "h3"]) if container else None
             title = title_el.get_text(strip=True) if title_el else a.get_text(strip=True)[:100]
             if not title or len(title) < 2:
                 continue
-            desc_el = container.find("p")
-            desc = desc_el.get_text(strip=True)[:400] if desc_el else ""
-            date_text = ""
-            for node in container.find_all(string=True):
-                t = str(node).strip()
-                if re.search(r"\d{4}.*\d{1,2}:\d{2}", t) or ("February" in t or "March" in t or "April" in t):
-                    date_text = t[:80]
-                    break
-            events.append({
-                "title": title[:200],
-                "date": date_text or "TBA",
-                "description": desc,
-                "link": link,
-                "source": "Campus Life",
-            })
+
+            ev = self.scrape_localist_detail(link, title, source="Campus Life")
+            events.append(ev)
         return events
