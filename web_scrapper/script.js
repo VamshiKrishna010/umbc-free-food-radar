@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateRangeLabel = document.getElementById('date-range-label');
     const dateRangeOptions = document.querySelectorAll('.custom-option');
     let allEvents = [];
-    let activeTab = 'important_date';
+    let activeTab = 'food_event';
     let selectedSource = 'all';
     let selectedDateRange = 'all';
 
@@ -101,11 +101,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
             });
             if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
-            allEvents = await response.json();
+            const _JUNK_TITLES = new Set(['no title', 'untitled', 'untitled event', '']);
+            const _JUNK_DESCS = new Set(['view more', 'featured events view more', 'weekend view more']);
+            allEvents = (await response.json()).filter(e => {
+                const t = (e.title || '').trim().toLowerCase();
+                const d = (e.description || '').trim().toLowerCase();
+                return !_JUNK_TITLES.has(t) && !_JUNK_DESCS.has(d);
+            });
             lastFetchTime = Date.now();
             updateLastUpdated();
             renderTabContent();
             updateTabBadges();
+            updateStatsBar();
             renderSourceFilter();
         } catch (error) {
             console.error('Error:', error);
@@ -123,6 +130,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const mins = Math.floor((Date.now() - lastFetchTime) / 60000);
             lastUpdatedEl.textContent = mins < 1 ? 'Updated just now' : mins === 1 ? 'Updated 1 min ago' : `Updated ${mins} min ago`;
         }, 60000);
+    }
+
+    // Animated count-up for stats bar
+    function animateCount(id, target) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const start = parseInt(el.textContent) || 0;
+        const duration = 900;
+        const startTime = performance.now();
+        function step(now) {
+            const progress = Math.min((now - startTime) / duration, 1);
+            const ease = 1 - Math.pow(1 - progress, 3); // cubic ease-out
+            el.textContent = Math.round(start + (target - start) * ease);
+            if (progress < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    function updateStatsBar() {
+        const counts = getCategoryCounts();
+        animateCount('stat-dates-count', counts.important_date);
+        animateCount('stat-food-count', counts.food_event);
+        animateCount('stat-campus-count', counts.campus_event);
     }
 
     function getCategoryCounts() {
@@ -262,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const fav = isFavorite(eventId);
             const detailUrl = `event.html?id=${encodeURIComponent(eventId)}`;
             wrapper.innerHTML = `
-                <div class="event-card" style="animation: fadeUp 0.5s ease backwards ${index * 0.08}s">
+                <div class="event-card cat-${category}" style="animation: fadeUp 0.5s ease backwards ${index * 0.08}s">
                     <div class="event-card-header">
                         <a href="${sanitize(detailUrl)}" class="event-card-link">
                             <div class="event-date">${sanitize(event.date || 'TBA')}</div>
