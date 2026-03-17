@@ -1,4 +1,4 @@
-const CACHE_NAME = 'umbc-food-radar-v2';
+const CACHE_NAME = 'umbc-food-radar-v3';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -16,38 +16,21 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
-  // API calls are network-first with cache fallback for offline support.
+  // API calls are always network-only to keep event data fresh.
   if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) {
-    // Keep non-GET methods network-only (no cache writes for mutable requests).
-    if (e.request.method !== 'GET') {
-      e.respondWith(fetch(e.request));
-      return;
-    }
-
     e.respondWith(
-      fetch(e.request)
-        .then((res) => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+      fetch(e.request, { cache: 'no-store' }).catch(() =>
+        new Response(
+          JSON.stringify({ error: 'Offline and no live data available' }),
+          {
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-store',
+            },
           }
-          return res;
-        })
-        .catch(() =>
-          caches.match(e.request).then((cached) => {
-            if (cached) return cached;
-            return new Response(
-              JSON.stringify({ error: 'Offline and no cached data available' }),
-              {
-                status: 503,
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Cache-Control': 'no-store',
-                },
-              }
-            );
-          })
         )
+      )
     );
     return;
   }

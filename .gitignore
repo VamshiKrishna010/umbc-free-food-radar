@@ -37,3 +37,5 @@ seen_events.json
 # Personal / non-project files
 thaskarinchuta/
 greens_files/
+.vercel
+.env*.local

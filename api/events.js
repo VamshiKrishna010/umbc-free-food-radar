@@ -7,16 +7,33 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+  "Surrogate-Control": "no-store",
+};
+
+function applyHeaders(res, headers) {
+  for (const [key, value] of Object.entries(headers)) {
+    res.setHeader(key, value);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    return res.status(200).setHeader("Access-Control-Allow-Origin", "*").end();
+    applyHeaders(res, CORS_HEADERS);
+    applyHeaders(res, NO_STORE_HEADERS);
+    return res.status(200).end();
   }
 
   if (req.method !== "GET") {
+    applyHeaders(res, NO_STORE_HEADERS);
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {
+    applyHeaders(res, NO_STORE_HEADERS);
     return res.status(500).json({ error: "Server misconfigured" });
   }
 
@@ -39,6 +56,7 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
+      applyHeaders(res, NO_STORE_HEADERS);
       return res
         .status(response.status)
         .json({ error: "Upstream error", status: response.status });
@@ -46,13 +64,12 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    for (const [key, value] of Object.entries(CORS_HEADERS)) {
-      res.setHeader(key, value);
-    }
-    res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
+    applyHeaders(res, CORS_HEADERS);
+    applyHeaders(res, NO_STORE_HEADERS);
 
     return res.status(200).json(data);
   } catch (err) {
+    applyHeaders(res, NO_STORE_HEADERS);
     return res.status(502).json({ error: "Failed to fetch events" });
   }
 }
