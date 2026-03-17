@@ -55,7 +55,7 @@
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
-    margin-bottom: -0.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .detail-badge {
@@ -70,7 +70,7 @@
     line-height: 1.15;
     letter-spacing: -0.5px;
     color: var(--text-primary);
-    margin: 0;
+    margin: 0 0 2rem 0;
     text-wrap: balance; /* Beautiful wrapping without huge gaps */
 }
 
@@ -79,6 +79,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+    margin-bottom: 1.5rem;
     padding: 1.25rem 1.5rem; /* Reduced vertical padding */
     background: rgba(255, 255, 255, 0.03); /* Subtle background */
     border: 1px solid var(--card-border);
