@@ -21,6 +21,10 @@ from scrapers.dining_scraper import DiningScraper
 from scrapers.official_dates_scraper import OfficialDatesScraper
 from scrapers.gradschool_scraper import GradSchoolScraper
 from scrapers.myumbc_group_scraper import MyUMBCGroupScraper
+from scrapers.eventbrite_scraper import EventbriteScraper
+from scrapers.meetup_scraper import MeetupScraper
+from scrapers.baltimoremag_scraper import BaltimoreMagScraper
+from scrapers.patch_scraper import PatchCalendarScraper
 from utils.notifier import DiscordNotifier
 from dotenv import load_dotenv
 
@@ -352,6 +356,10 @@ def main():
         (MathStatScraper,          "Math & Statistics"),
         (DepartmentSeminarScraper, "Dept Seminars (CS/GES/Research)"),
         (GradSchoolScraper,        "Grad School / GSA"),
+        (EventbriteScraper,        "Eventbrite (UMBC)"),
+        (MeetupScraper,            "Meetup (UMBC)"),
+        (BaltimoreMagScraper,      "Baltimore Magazine (UMBC)"),
+        (PatchCalendarScraper,     "Patch Calendar (Baltimore)"),
     ]
     for scraper_class, name in campus_scrapers:
         try:
