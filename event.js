@@ -82,20 +82,66 @@
         // Title
         document.getElementById('detail-title').textContent = event.title || 'Untitled Event';
 
+        // --- Metadata Parsing ---
+        let cleanDescription = event.description || '';
+        let extractedLocation = extractLocation(cleanDescription);
+        let extractedDate = event.date || 'Date TBA';
+
+        // Often scraped descriptions dump everything: "Off Campus — Location Off Campus Date March 16... Description ..."
+        // Let's systematically rip out the headers and extract.
+        const descText = cleanDescription;
+        
+        let foundLocation = null;
+        let foundDate = null;
+        let foundDesc = null;
+
+        // Extract "Location ..."
+        const locRegex = /Location\s+(.*?)\s+(?=Date|Description|$)/i;
+        const locMatch = descText.match(locRegex);
+        if (locMatch) foundLocation = locMatch[1].trim();
+
+        // Extract "Date ..."
+        const dateRegex = /Date\s+(.*?)\s+(?=Description|$)/i;
+        const dateMatch = descText.match(dateRegex);
+        if (dateMatch) foundDate = dateMatch[1].trim();
+
+        // Extract "Description ..."
+        const descRegex = /Description\s+(.*)/i;
+        const descMatch = descText.match(descRegex);
+        if (descMatch) {
+            foundDesc = descMatch[1].trim();
+        } else if (!locMatch && !dateMatch) {
+            // If it doesn't have the explicit labels, use the raw string.
+            foundDesc = cleanDescription;
+        } else {
+             // Fallback if it had Location/Date but missing 'Description' label for some reason
+            foundDesc = cleanDescription.replace(/Location\s+.*?(?=Date|Description|$)/i, '')
+                                        .replace(/Date\s+.*?(?=Description|$)/i, '')
+                                        .replace(/Off Campus — /i, '')
+                                        .trim();
+        }
+
+        const finalLocation = foundLocation || extractedLocation || null;
+        const finalDate = foundDate || extractedDate;
+        const finalDesc = foundDesc || 'No additional details available.';
+
+        // --- DOM Population ---
+
         // Date
         const dateEl = document.getElementById('detail-date');
-        dateEl.textContent = event.date || 'Date TBA';
+        dateEl.textContent = finalDate;
 
         // Location
-        const location = extractLocation(event.description);
-        if (location) {
-            document.getElementById('detail-location').textContent = location;
+        if (finalLocation) {
+            document.getElementById('detail-location').textContent = finalLocation;
             document.getElementById('detail-location-row').style.display = 'flex';
+        } else {
+             document.getElementById('detail-location-row').style.display = 'none';
         }
 
         // Description
         const descEl = document.getElementById('detail-description');
-        descEl.textContent = event.description || 'No additional details available.';
+        descEl.textContent = finalDesc;
 
         // External link
         const extLink = document.getElementById('detail-external-link');
@@ -126,7 +172,7 @@
         const shareBtn = document.getElementById('detail-share-btn');
         shareBtn.addEventListener('click', () => {
             const url = window.location.href;
-            const text = `${event.title || 'Event'} – ${event.date || ''}`;
+            const text = `${event.title || 'Event'} – ${finalDate}`;
             if (navigator.share) {
                 navigator.share({ title: event.title, text, url }).catch(() => { });
             } else {
@@ -166,7 +212,9 @@
         // Fetch from Supabase by matching link or id column
         try {
             const url = `${API_BASE}/events?id=${encodeURIComponent(eventId)}`;
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                cache: 'no-store',
+            });
             if (!response.ok) throw new Error('Fetch failed');
             const data = await response.json();
             if (!data || data.length === 0) throw new Error('Not found');
