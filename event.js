@@ -122,7 +122,14 @@
         }
 
         const finalLocation = foundLocation || extractedLocation || null;
-        const finalDate = foundDate || extractedDate;
+        
+        // If the regex captured a huge chunk, it's probably wrong.
+        if (foundDate && foundDate.length > 80) foundDate = null;
+        
+        // Prioritize the actual extracted event.date over regex guessing, unless it's TBA
+        const hasRealDate = extractedDate && !extractedDate.includes('TBA');
+        const finalDate = hasRealDate ? extractedDate : (foundDate || extractedDate);
+        
         const finalDesc = foundDesc || 'No additional details available.';
 
         // --- DOM Population ---
