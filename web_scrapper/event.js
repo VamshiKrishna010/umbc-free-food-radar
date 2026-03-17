@@ -186,6 +186,107 @@
         // Show content
         document.getElementById('detail-loading').style.display = 'none';
         document.getElementById('detail-content').style.display = 'block';
+
+        fetchAndRenderRelatedEvents(event);
+    }
+
+    function parseDateForSort(str) {
+        if (!str) return Infinity;
+        const s = String(str).toLowerCase();
+        const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+        const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+        if (m) return new Date(parseInt(m[3]) > 50 ? 1900 + parseInt(m[3]) : 2000 + parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2])).getTime();
+        const m2 = s.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i);
+        if (m2) {
+            const yr = (s.match(/\d{4}/) || [String(new Date().getFullYear())])[0];
+            return new Date(parseInt(yr), months[m2[1].toLowerCase().slice(0, 3)] || 0, parseInt(m2[2]) || 1).getTime();
+        }
+        if (/ongoing|tba|check|every/i.test(s)) return 0;
+        return Date.now();
+    }
+
+    async function fetchAndRenderRelatedEvents(currentEvent) {
+        try {
+            const sidebar = document.getElementById('related-sidebar');
+            const listEl = document.getElementById('related-events-list');
+            if (sidebar) sidebar.style.display = 'flex';
+
+            const response = await fetch(`${API_BASE}/events`, { cache: 'no-store' });
+            if (!response.ok) throw new Error('Failed to fetch events');
+            const allEvents = await response.json();
+
+            const currentId = currentEvent.link || currentEvent.id || '';
+            const currentCat = currentEvent.category || 'campus_event';
+            const currentSource = currentEvent.source || '';
+            const now = Date.now() - 86400000;
+
+            let related = allEvents.filter(e => {
+                const eid = e.link || e.id || '';
+                if (eid === currentId) return false;
+                
+                const t = parseDateForSort(e.date);
+                if (t > 0 && t < Infinity && t < now) return false; // hide past
+
+                if ((e.category || 'campus_event') !== currentCat) return false;
+                if (currentCat === 'campus_event' && currentSource && (e.source || '') !== currentSource) {
+                    return false; // For campus events, filter by source explicitly if possible
+                }
+                return true;
+            });
+
+            // Sort by upcoming
+            related.sort((a, b) => {
+                const ta = parseDateForSort(a.date);
+                const tb = parseDateForSort(b.date);
+                if (ta === 0 && tb === 0) return 0;
+                if (ta === 0) return 1;
+                if (tb === 0) return -1;
+                return ta - tb;
+            });
+
+            related = related.slice(0, 5);
+
+            if (related.length === 0) {
+                listEl.innerHTML = `<div class="related-empty">No related events found</div>`;
+                return;
+            }
+
+            listEl.innerHTML = '';
+            related.forEach(ev => {
+                const c = document.createElement('a');
+                c.className = 'related-event-card';
+                const safeUrl = `event.html?id=${encodeURIComponent(ev.link || ev.id || '')}`;
+                c.href = safeUrl;
+
+                const dateEl = document.createElement('div');
+                dateEl.className = 'related-event-date';
+                dateEl.textContent = ev.date || 'TBA';
+
+                const titleEl = document.createElement('h3');
+                titleEl.className = 'related-event-title';
+                titleEl.textContent = ev.title || 'Untitled';
+
+                c.appendChild(dateEl);
+                c.appendChild(titleEl);
+
+                if (ev.source && currentCat !== 'campus_event') {
+                    const meta = document.createElement('div');
+                    meta.className = 'related-event-meta';
+                    meta.textContent = ev.source;
+                    c.appendChild(meta);
+                }
+
+                c.addEventListener('click', () => {
+                    sessionStorage.setItem('umbc_event_detail', JSON.stringify(ev));
+                });
+
+                listEl.appendChild(c);
+            });
+        } catch (err) {
+            console.error('Could not load related events:', err);
+            const listEl = document.getElementById('related-events-list');
+            if (listEl) listEl.innerHTML = `<div class="related-empty">Could not load related events.</div>`;
+        }
     }
 
     // --- Main: parse ID from URL and fetch ---

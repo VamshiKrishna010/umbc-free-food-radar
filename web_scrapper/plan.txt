@@ -1,0 +1,77 @@
+Add a related-events sidebar to the event details page.
+
+Context:
+This page shows one selected event with:
+- back link
+- category/tag pill
+- event title
+- event metadata card
+- about/description section
+- action buttons
+
+New feature:
+When a user opens any event, show a sidebar with other events related to the current event’s category/source/organization. Example: if the current event is from Student Affairs, the sidebar should show other Student Affairs events.
+
+What to build:
+1. Add a right-side sidebar on desktop.
+2. The sidebar should display:
+   - section title: "Related Events"
+   - a vertical list of event cards/items
+   - each item should include:
+     - event title
+     - date
+     - optional location
+     - category/source label if useful
+3. Clicking a related event should navigate to that event’s detail page.
+4. Highlight the currently open event in the sidebar so users know where they are.
+5. Exclude the current event from the clickable related list, or show it as active/disabled.
+6. Sort related events by soonest upcoming date first.
+7. Only show events that are actually related by the same category/source/department, not random events.
+8. If there are no related events, show a clean empty state like:
+   - "No related events found"
+
+Layout behavior:
+- Desktop:
+  - main event content on the left
+  - related events sidebar on the right
+  - sidebar should stay visible while scrolling, using sticky positioning
+- Tablet:
+  - sidebar can move below the main content if needed
+- Mobile:
+  - convert sidebar into a stacked section below the event details
+  - keep spacing clean and cards touch-friendly
+
+Design requirements:
+- Match the existing dark theme and visual language
+- Keep the sidebar visually lighter than the main event content so it does not compete
+- Use consistent spacing, borders, and radius
+- Keep cards compact and easy to scan
+- Ensure hover, focus, and active states are clear
+- Keep good contrast and accessibility
+
+Implementation details:
+- Use the current event’s category/source/organization field to filter related events
+- Create a reusable helper/function such as:
+  getRelatedEvents(currentEvent, allEvents)
+- That function should:
+  - filter events from the same category/source/organization
+  - remove the current event from normal results
+  - sort by date ascending
+  - optionally limit results to a reasonable number like 5 to 8
+- Build a reusable RelatedEventsSidebar component
+- Keep the main event detail component clean by moving sidebar logic into its own component
+- Preserve existing functionality and styling of the main event page
+
+Nice-to-have:
+- Add a small "View all" link for the related category if routing already supports it
+- Add subtle separators between related event items
+- Truncate long titles cleanly
+- Show date in a readable format
+
+Acceptance criteria:
+- Event detail page now includes a related-events sidebar/section
+- Related events are based on the same source/category/department
+- Current event is visually identified
+- Layout is responsive across desktop, tablet, and mobile
+- Sidebar feels integrated with the existing UI, not bolted on
+- No broken navigation or layout regressions

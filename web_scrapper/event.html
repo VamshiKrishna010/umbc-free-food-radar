@@ -28,68 +28,78 @@
                 <span>Back to events</span>
             </a>
 
-            <!-- Loading State -->
-            <div id="detail-loading" class="detail-loading">
-                <div class="skeleton-card detail-skeleton">
-                    <div class="skeleton-line short"></div>
-                    <div class="skeleton-line long" style="height:2.5rem; margin:1rem 0;"></div>
-                    <div class="skeleton-line medium"></div>
-                    <div class="skeleton-line long"></div>
-                    <div class="skeleton-line medium"></div>
-                </div>
-            </div>
-
-            <!-- Event Detail Content -->
-            <article id="detail-content" class="detail-content" style="display:none">
-
-                <div class="detail-meta-row">
-                    <span id="detail-badge" class="detail-badge"></span>
-                    <span id="detail-source" class="source-badge"></span>
-                </div>
-
-                <h1 id="detail-title" class="detail-title"></h1>
-
-                <div class="detail-info-grid">
-                    <div class="detail-info-item" id="detail-date-row">
-                        <span class="detail-info-icon">📅</span>
-                        <div>
-                            <div class="detail-info-label">Date &amp; Time</div>
-                            <div id="detail-date" class="detail-info-value"></div>
+            <div class="detail-layout">
+                <div class="detail-main-col">
+                    <!-- Loading State -->
+                    <div id="detail-loading" class="detail-loading">
+                        <div class="skeleton-card detail-skeleton">
+                            <div class="skeleton-line short"></div>
+                            <div class="skeleton-line long" style="height:2.5rem; margin:1rem 0;"></div>
+                            <div class="skeleton-line medium"></div>
+                            <div class="skeleton-line long"></div>
+                            <div class="skeleton-line medium"></div>
                         </div>
                     </div>
-                    <div class="detail-info-item" id="detail-location-row" style="display:none">
-                        <span class="detail-info-icon">📍</span>
-                        <div>
-                            <div class="detail-info-label">Location</div>
-                            <div id="detail-location" class="detail-info-value"></div>
+
+                    <!-- Event Detail Content -->
+                    <article id="detail-content" class="detail-content" style="display:none">
+
+                        <div class="detail-meta-row">
+                            <span id="detail-badge" class="detail-badge"></span>
+                            <span id="detail-source" class="source-badge"></span>
                         </div>
+
+                        <h1 id="detail-title" class="detail-title"></h1>
+
+                        <div class="detail-info-grid">
+                            <div class="detail-info-item" id="detail-date-row">
+                                <span class="detail-info-icon">📅</span>
+                                <div>
+                                    <div class="detail-info-label">Date &amp; Time</div>
+                                    <div id="detail-date" class="detail-info-value"></div>
+                                </div>
+                            </div>
+                            <div class="detail-info-item" id="detail-location-row" style="display:none">
+                                <span class="detail-info-icon">📍</span>
+                                <div>
+                                    <div class="detail-info-label">Location</div>
+                                    <div id="detail-location" class="detail-info-value"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-description-section">
+                            <h2 class="detail-section-title">About this event</h2>
+                            <p id="detail-description" class="detail-description"></p>
+                        </div>
+
+                        <div class="detail-actions">
+                            <a id="detail-external-link" href="#" target="_blank" rel="noopener"
+                                class="detail-action-btn primary">
+                                View original ↗
+                            </a>
+                            <button id="detail-fav-btn" class="detail-action-btn secondary fav-btn"
+                                title="Add to favorites">❤</button>
+                            <button id="detail-cal-btn" class="detail-action-btn secondary" title="Add to calendar">+
+                                Calendar</button>
+                            <button id="detail-share-btn" class="detail-action-btn secondary" title="Share">Share</button>
+                        </div>
+
+                    </article>
+
+                    <!-- Error State -->
+                    <div id="detail-error" class="detail-error" style="display:none">
+                        <p>⚠️ Could not load event details.</p>
+                        <a href="index.html" class="detail-action-btn primary" style="margin-top:1rem; display:inline-block;">←
+                            Back to events</a>
                     </div>
                 </div>
 
-                <div class="detail-description-section">
-                    <h2 class="detail-section-title">About this event</h2>
-                    <p id="detail-description" class="detail-description"></p>
-                </div>
-
-                <div class="detail-actions">
-                    <a id="detail-external-link" href="#" target="_blank" rel="noopener"
-                        class="detail-action-btn primary">
-                        View original ↗
-                    </a>
-                    <button id="detail-fav-btn" class="detail-action-btn secondary fav-btn"
-                        title="Add to favorites">❤</button>
-                    <button id="detail-cal-btn" class="detail-action-btn secondary" title="Add to calendar">+
-                        Calendar</button>
-                    <button id="detail-share-btn" class="detail-action-btn secondary" title="Share">Share</button>
-                </div>
-
-            </article>
-
-            <!-- Error State -->
-            <div id="detail-error" class="detail-error" style="display:none">
-                <p>⚠️ Could not load event details.</p>
-                <a href="index.html" class="detail-action-btn primary" style="margin-top:1rem; display:inline-block;">←
-                    Back to events</a>
+                <!-- Related Events Sidebar -->
+                <aside id="related-sidebar" class="detail-sidebar" style="display:none">
+                    <h2 class="sidebar-title">Related Events</h2>
+                    <div id="related-events-list" class="related-events-list"></div>
+                </aside>
             </div>
         </div>
     </div>
