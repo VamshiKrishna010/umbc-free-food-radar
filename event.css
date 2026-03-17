@@ -55,7 +55,7 @@
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
-    margin-bottom: -1.5rem; /* Pull title closer to badges */
+    margin-bottom: -0.5rem;
 }
 
 .detail-badge {
