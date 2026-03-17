@@ -52,13 +52,13 @@ class UMBCEventsScraper(BaseScraper):
             if not container:
                 continue
             
-            title_elem = container.find(['h2', 'h3', 'h4', '.tribe-events-calendar-list__event-title'])
+            title_elem = container.select_one('h2, h3, h4, .tribe-events-calendar-list__event-title')
             title = title_elem.get_text(strip=True) if title_elem else a.get_text(strip=True)[:100]
             
-            desc_elem = container.find(['p', '.tribe-events-list-event-description'])
+            desc_elem = container.select_one('p, .tribe-events-list-event-description')
             description = desc_elem.get_text(strip=True) if desc_elem else ''
             
-            date_elem = container.find(['time', '.tribe-event-date-start', '.event-date'])
+            date_elem = container.select_one('time, .tribe-event-date-start, .event-date')
             date_str = ''
             if date_elem:
                 date_str = date_elem.get('datetime', '') or date_elem.get_text(strip=True)
@@ -87,7 +87,7 @@ class UMBCEventsScraper(BaseScraper):
                     link = 'https://umbc.edu' + (link if link.startswith('/') else '/' + link)
                 title = link_elem.get_text(strip=True) or 'Event'
                 desc = article.find('p')
-                date_el = article.find('time') or article.find(class_=lambda x: x and 'date' in str(x).lower())
+                date_el = article.select_one('time, .date, [class*="date"]')
                 events.append({
                     'title': title[:200],
                     'date': date_el.get_text(strip=True) if date_el else 'TBA',
