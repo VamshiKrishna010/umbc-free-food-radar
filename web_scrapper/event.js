@@ -100,8 +100,8 @@
         const locMatch = descText.match(locRegex);
         if (locMatch) foundLocation = locMatch[1].trim();
 
-        // Extract "Date ..."
-        const dateRegex = /Date\s+(.*?)\s+(?=Description|$)/i;
+        // Extract "Date ..." or "Date & Time ..."
+        const dateRegex = /Date\s+(?:&\s*Time\s+)?(.*?)(?:\s+Description|\s*$)/i;
         const dateMatch = descText.match(dateRegex);
         if (dateMatch) foundDate = dateMatch[1].trim();
 
