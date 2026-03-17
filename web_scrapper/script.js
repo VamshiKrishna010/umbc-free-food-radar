@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTab = 'food_event';
     let selectedSource = 'all';
     let selectedDateRange = 'all';
+    let selectedSpecificDate = null; // New state for calendar filter
+    let currentCalendarDate = new Date(); // State for month navigation
 
     const FAVORITES_KEY = 'umbc_food_radar_favorites';
     function getFavorites() {
@@ -247,6 +249,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 return t.includes(term) || d.includes(term) || k.includes(term) || s.includes(term);
             });
         }
+        
+        // Specific Date Filter
+        if (selectedSpecificDate) {
+            const filterYear = selectedSpecificDate.getFullYear();
+            const filterMonth = selectedSpecificDate.getMonth();
+            const filterDay = selectedSpecificDate.getDate();
+            
+            list = list.filter(e => {
+                const et = parseDateForSort(e.date);
+                if (et === 0 || et === Infinity) return false;
+                const d = new Date(et);
+                return d.getFullYear() === filterYear && d.getMonth() === filterMonth && d.getDate() === filterDay;
+            });
+            return sortByDate(list); // Bypass standard ranges if specific date is set
+        }
+
         const now = Date.now();
         const day = 86400000;
         const todayStart = now - day; // 1-day buffer so today's events always show
@@ -399,6 +417,97 @@ document.addEventListener('DOMContentLoaded', () => {
             dateRangeWrapper.classList.remove('open');
             renderTabContent();
         });
+    });
+
+    // Calendar Filter Logic
+    const calendarWrapper = document.getElementById('calendar-filter-wrapper');
+    const calendarTrigger = document.getElementById('calendar-trigger');
+    const calendarLabel = document.getElementById('calendar-label');
+    const calendarGrid = document.getElementById('calendar-grid');
+    const currentMonthYear = document.getElementById('currentMonthYear');
+    const prevMonthBtn = document.getElementById('prevMonth');
+    const nextMonthBtn = document.getElementById('nextMonth');
+    const clearDateBtn = document.getElementById('clearDate');
+
+    function renderCalendar() {
+        if (!calendarGrid) return;
+        calendarGrid.innerHTML = '';
+        
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        
+        currentMonthYear.textContent = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(currentCalendarDate);
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        
+        // Padding for first day
+        for (let i = 0; i < firstDay; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'calendar-day inactive';
+            calendarGrid.appendChild(empty);
+        }
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayEl = document.createElement('div');
+            dayEl.className = 'calendar-day';
+            dayEl.textContent = day;
+            
+            const dateObj = new Date(year, month, day);
+            
+            if (dateObj.toDateString() === today.toDateString()) {
+                dayEl.classList.add('today');
+            }
+            
+            if (selectedSpecificDate && dateObj.toDateString() === selectedSpecificDate.toDateString()) {
+                dayEl.classList.add('selected');
+            }
+            
+            dayEl.addEventListener('click', () => {
+                selectedSpecificDate = new Date(year, month, day);
+                calendarLabel.textContent = selectedSpecificDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                calendarWrapper.classList.remove('open');
+                renderCalendar();
+                renderTabContent();
+            });
+            
+            calendarGrid.appendChild(dayEl);
+        }
+    }
+
+    calendarTrigger?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        calendarWrapper.classList.toggle('open');
+        if (calendarWrapper.classList.contains('open')) {
+            renderCalendar();
+        }
+    });
+
+    prevMonthBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+        renderCalendar();
+    });
+
+    nextMonthBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+        renderCalendar();
+    });
+
+    clearDateBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedSpecificDate = null;
+        calendarLabel.textContent = 'Filter by Date';
+        calendarWrapper.classList.remove('open');
+        renderTabContent();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (calendarWrapper && !calendarWrapper.contains(e.target)) {
+            calendarWrapper.classList.remove('open');
+        }
     });
 
     document.addEventListener('click', (e) => {

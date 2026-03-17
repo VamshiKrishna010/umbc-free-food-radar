@@ -75,6 +75,27 @@
                             <div class="custom-option" data-value="past">Include past</div>
                         </div>
                     </div>
+
+                    <div class="calendar-filter-wrapper" id="calendar-filter-wrapper">
+                        <button class="calendar-trigger" id="calendar-trigger" title="Filter by date">
+                            <span class="calendar-icon">📅</span>
+                            <span id="calendar-label">Filter by Date</span>
+                        </button>
+                        <div class="calendar-popover" id="calendar-popover">
+                            <div class="calendar-header">
+                                <button id="prevMonth" class="cal-nav-btn">&lt;</button>
+                                <span id="currentMonthYear"></span>
+                                <button id="nextMonth" class="cal-nav-btn">&gt;</button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                            </div>
+                            <div class="calendar-grid" id="calendar-grid"></div>
+                            <div class="calendar-footer-btn">
+                                <button id="clearDate" class="clear-date-btn">Clear Filter</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="pull-indicator" class="pull-indicator">Pull to refresh</div>
