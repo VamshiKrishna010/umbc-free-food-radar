@@ -322,7 +322,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="event-actions">
                             <button type="button" class="share-btn" title="Share">Share</button>
                             <button type="button" class="add-cal-btn" title="Add to calendar">+ Cal</button>
-                            <a href="${sanitize(detailUrl)}" class="card-link-icon detail-nav" title="View details">↗</a>
+                            <a href="${sanitize(detailUrl)}" class="card-link-icon detail-nav" title="View details">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <polyline points="12 5 19 12 12 19"></polyline>
+                                </svg>
+                            </a>
                         </div>
                     </div>
                 </div>
