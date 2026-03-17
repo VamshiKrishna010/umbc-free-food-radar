@@ -110,14 +110,19 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchEvents(showLoading = true) {
         if (showLoading) showSkeleton();
         try {
-            const response = await fetch(`${API_BASE}/events`);
+            const response = await fetch(`${API_BASE}/events`, {
+                cache: 'no-store',
+            });
             if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
             const _JUNK_TITLES = new Set(['no title', 'untitled', 'untitled event', '']);
             const _JUNK_DESCS = new Set(['view more', 'featured events view more', 'weekend view more']);
+            const _BLOCKED_TITLES = ['fresh food pop-up', 'umbc dining hall'];
             allEvents = dedupeEvents((await response.json()).filter(e => {
                 const t = (e.title || '').trim().toLowerCase();
                 const d = (e.description || '').trim().toLowerCase();
-                return !_JUNK_TITLES.has(t) && !_JUNK_DESCS.has(d);
+                if (_JUNK_TITLES.has(t) || _JUNK_DESCS.has(d)) return false;
+                if (_BLOCKED_TITLES.some(b => t.includes(b))) return false;
+                return true;
             }));
             lastFetchTime = Date.now();
             updateLastUpdated();
