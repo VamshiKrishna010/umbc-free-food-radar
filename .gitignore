@@ -33,3 +33,7 @@ seen_events.json
 
 # Local auth/session cache
 .auth/
+
+# Personal / non-project files
+thaskarinchuta/
+greens_files/
