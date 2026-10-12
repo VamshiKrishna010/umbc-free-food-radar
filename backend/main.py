@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import sys
@@ -71,41 +72,124 @@ CATEGORY_IMPORTANT_DATE = "important_date"
 CATEGORY_FOOD_EVENT = "food_event"
 CATEGORY_CAMPUS_EVENT = "campus_event"
 
-_LOCALIST_EVENT_ID_RE = re.compile(r"/events?/event/(\d+)", re.I)
+_EVENT_NUMERIC_ID_RE = re.compile(r"(?:/events?/event/|/events/|localist:|umbc:)(\d+)", re.I)
+
+MONTHS_MAP = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
 
 
-def normalize_event_id(link: str) -> str:
-    """Normalize event IDs so shared Localist events and myUMBC events dedupe across UMBC sites."""
+def extract_calendar_date(s: str) -> str:
+    """Normalize date strings into a canonical YYYY-MM-DD day key.
+    Ensures 'October 15, 2026, 11:30 am' and 'Oct 15 11:30 AM' produce identical date keys.
+    """
+    if not s:
+        return "no-date"
+    s_low = s.lower().strip()
+    # 1. ISO format: 2026-10-15
+    m_iso = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})", s)
+    if m_iso:
+        return f"{int(m_iso.group(1)):04d}-{int(m_iso.group(2)):02d}-{int(m_iso.group(3)):02d}"
+    # 2. Month name + day: 'October 15, 2026' or 'Oct 15 11:30 AM'
+    m_name = re.search(r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s*(\d{4}))?", s_low)
+    if m_name:
+        mo = MONTHS_MAP[m_name.group(1)[:3]]
+        day = int(m_name.group(2))
+        yr = int(m_name.group(3)) if m_name.group(3) else datetime.now().year
+        return f"{yr:04d}-{mo:02d}-{day:02d}"
+    # 3. Slash format: 10/15/2026
+    m_slash = re.search(r"(\d{1,2})/(\d{1,2})/(?:\d{2,4})", s)
+    if m_slash:
+        return f"{datetime.now().year:04d}-{int(m_slash.group(1)):02d}-{int(m_slash.group(2)):02d}"
+    if "ongoing" in s_low or "check" in s_low:
+        return "ongoing"
+    return re.sub(r"[^a-z0-9]+", "", s_low)[:15]
+
+
+def extract_numeric_event_id(link: str) -> str:
+    """Extract UMBC's underlying numeric event ID if present in the link or ID string."""
+    m = _EVENT_NUMERIC_ID_RE.search(link or "")
+    return m.group(1) if m else ""
+
+
+def compute_event_fingerprint_hash(title: str, date: str) -> str:
+    """Assign a deterministic 16-hex SHA-256 hash to an event title + calendar date.
+    Eliminates cross-website deduplication hassle by giving identical events from different
+    websites the exact same hash fingerprint.
+    """
+    clean_title = re.sub(r"[^a-z0-9]+", " ", (title or "").lower()).strip()
+    clean_date = extract_calendar_date(date)
+    fingerprint = f"{clean_title}||{clean_date}"
+    return hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:16]
+
+
+def get_event_id(ev: dict) -> str:
+    """Return the deterministic title+date fingerprint hash ID for an event.
+    Guarantees cross-website deduplication across all feeds.
+    """
+    title = (ev.get("title") or "").strip()
+    date = (ev.get("date") or "").strip()
+    if title:
+        return f"ev_{compute_event_fingerprint_hash(title, date)}"
+    link = (ev.get("link") or "").strip()
+    nid = extract_numeric_event_id(link)
+    if nid:
+        return f"umbc:{nid}"
+    return link
+
+
+def normalize_event_id(link: str, title: str = "", date: str = "") -> str:
+    """Normalize event ID using title+date fingerprint hash or numeric ID."""
+    if title:
+        return f"ev_{compute_event_fingerprint_hash(title, date)}"
     if not link:
         return ""
     cleaned = re.sub(r"^https?://my3\.my\.umbc\.edu", "https://my.umbc.edu", link.strip()).rstrip("/")
-    match = _LOCALIST_EVENT_ID_RE.search(cleaned)
-    if match:
-        return f"localist:{match.group(1)}"
+    nid = extract_numeric_event_id(cleaned)
+    if nid:
+        return f"umbc:{nid}"
     return cleaned
 
 
 def load_seen_ids() -> Set[str]:
     if supabase is None:
         return set()
+    seen = set()
+    page_size = 1000
+    start = 0
     try:
-        response = supabase.table("events").select("id").execute()
-        rows = cast(List[Dict[str, Any]], response.data or [])
-        return {str(row["id"]) for row in rows if row.get("id")}
+        while True:
+            response = supabase.table("events").select("id").range(start, start + page_size - 1).execute()
+            rows = cast(List[Dict[str, Any]], response.data or [])
+            for r in rows:
+                if r.get("id"):
+                    seen.add(str(r["id"]))
+            if len(rows) < page_size:
+                break
+            start += page_size
     except Exception as e:
         print(f"Error loading seen IDs: {e}")
-    return set()
+    return seen
 
 
 def load_existing_events() -> List[Dict[str, Any]]:
     if supabase is None:
         return []
+    all_rows = []
+    page_size = 1000
+    start = 0
     try:
-        response = supabase.table("events").select("*").execute()
-        return cast(List[Dict[str, Any]], response.data or [])
+        while True:
+            response = supabase.table("events").select("*").range(start, start + page_size - 1).execute()
+            rows = cast(List[Dict[str, Any]], response.data or [])
+            all_rows.extend(rows)
+            if len(rows) < page_size:
+                break
+            start += page_size
     except Exception as e:
         print(f"Error loading events: {e}")
-    return []
+    return all_rows
 
 
 _PLACEHOLDER_TITLES = {
@@ -139,33 +223,37 @@ def _is_valid_event(event: dict) -> bool:
 
 
 def _dedupe_events(events_list: list) -> list:
-    """Final safety-net dedup: keep best occurrence by normalized ID and title+date fingerprint."""
+    """Automatic cross-website deduplication using title+date fingerprint hashes
+    and UMBC numeric event IDs. Merges metadata (food keywords, descriptions, links).
+    """
     groups: Dict[str, Dict[str, Any]] = {}
+    key_aliases: Dict[str, str] = {}
+
     for ev in events_list:
-        raw_id = ev.get("id") or ev.get("link", "")
-        eid = normalize_event_id(raw_id)
-        if not eid:
-            continue
-        title_norm = re.sub(r"[^a-z0-9]+", " ", (ev.get("title") or "").strip().lower()).strip()
-        date_norm = re.sub(r"[^a-z0-9]+", " ", (ev.get("date") or "").strip().lower()).strip()
+        raw_link = ev.get("link") or ev.get("id", "")
+        clean_link = re.sub(r"^https?://my3\.my\.umbc\.edu", "https://my.umbc.edu", str(raw_link).strip())
+        h = compute_event_fingerprint_hash(ev.get("title", ""), ev.get("date", ""))
+        nid = extract_numeric_event_id(clean_link)
 
-        # Canonical key
-        if eid.startswith("localist:"):
-            key = eid
-        elif "my.umbc.edu" in eid:
-            m_my = re.search(r"my\.umbc\.edu/(?:groups/[^/]+/)?events/(\d+)", eid)
-            key = f"myumbc:{m_my.group(1)}||{date_norm}" if m_my else f"{title_norm}||{date_norm}"
-        else:
-            key = f"{title_norm}||{date_norm}" if title_norm else eid
+        # Look up if either the numeric ID or the title+date hash was already seen
+        canon_key = None
+        if nid and f"num:{nid}" in key_aliases:
+            canon_key = key_aliases[f"num:{nid}"]
+        elif f"hash:{h}" in key_aliases:
+            canon_key = key_aliases[f"hash:{h}"]
 
-        if key not in groups:
+        if not canon_key:
+            canon_key = f"ev_{h}"
+            if nid:
+                key_aliases[f"num:{nid}"] = canon_key
+            key_aliases[f"hash:{h}"] = canon_key
+
             ev_copy = dict(ev)
-            ev_copy["id"] = eid
-            if ev_copy.get("link"):
-                ev_copy["link"] = re.sub(r"^https?://my3\.my\.umbc\.edu", "https://my.umbc.edu", ev_copy["link"].strip())
-            groups[key] = ev_copy
+            ev_copy["id"] = canon_key
+            ev_copy["link"] = clean_link
+            groups[canon_key] = ev_copy
         else:
-            existing = groups[key]
+            existing = groups[canon_key]
             # Merge food keyword
             if ev.get("food_keyword") and not existing.get("food_keyword"):
                 existing["food_keyword"] = ev["food_keyword"]
@@ -176,61 +264,62 @@ def _dedupe_events(events_list: list) -> list:
             if len(ev.get("description", "")) > len(existing.get("description", "")):
                 existing["description"] = ev["description"]
             # Prefer non-my3 link
-            if "my3." in str(existing.get("link", "")) and "my3." not in str(ev.get("link", "")):
-                existing["link"] = ev["link"]
+            if "my3." in str(existing.get("link", "")) and "my3." not in str(clean_link):
+                existing["link"] = clean_link
+            # Prefer more detailed date if current is short
+            if len(str(ev.get("date", ""))) > len(str(existing.get("date", ""))):
+                existing["date"] = ev["date"]
 
     unique = list(groups.values())
     dropped = len(events_list) - len(unique)
     if dropped:
-        print(f"  Dedup pass removed {dropped} duplicate(s)")
+        print(f"  [DEDUPE] Automatically collapsed {dropped} cross-website duplicate event(s) via hash & ID matching")
     return unique
 
 
 def _cleanup_stale_duplicates():
-    """Remove old Supabase rows:
-    1. Raw Localist URLs superseded by localist:<id>.
-    2. Stale my3.my.umbc.edu rows superseded by my.umbc.edu rows.
-    3. Duplicate rows with identical (clean_title, clean_date).
-    """
+    """Remove old / duplicate Supabase rows across different feeds using hash fingerprints and numeric IDs."""
     if supabase is None:
         return
-    try:
-        response = supabase.table("events").select("*").execute()
-        rows = cast(List[Dict[str, Any]], response.data or [])
-    except Exception as e:
-        print(f"  [CLEANUP] Failed to read events: {e}")
+    rows = load_existing_events()
+    if not rows:
         return
 
-    all_ids = {str(row.get("id", "")) for row in rows}
-    stale_ids = set()
+    clusters: Dict[str, List[Dict[str, Any]]] = {}
+    key_aliases: Dict[str, str] = {}
+    stale_ids: Set[str] = set()
 
-    # 1. Localist stale URLs
     for row in rows:
         rid = str(row.get("id", ""))
         link = str(row.get("link", ""))
-        nid = normalize_event_id(link) if link else rid
-        if nid != rid and nid.startswith("localist:") and nid in all_ids:
-            stale_ids.add(rid)
+        title = str(row.get("title", ""))
+        date = str(row.get("date", ""))
 
-    # 2. Semantic title + date duplicate clusters
-    by_fingerprint: Dict[str, List[Dict[str, Any]]] = {}
-    for row in rows:
-        rid = str(row.get("id", ""))
-        if rid in stale_ids:
-            continue
-        title_norm = re.sub(r"[^a-z0-9]+", " ", str(row.get("title", "")).lower()).strip()
-        date_norm = re.sub(r"[^a-z0-9]+", " ", str(row.get("date", "")).lower()).strip()
-        if not title_norm:
-            continue
-        fp = f"{title_norm}||{date_norm}"
-        by_fingerprint.setdefault(fp, []).append(row)
+        h = compute_event_fingerprint_hash(title, date)
+        nid = extract_numeric_event_id(rid) or extract_numeric_event_id(link)
 
-    for fp, cluster in by_fingerprint.items():
+        canon_key = None
+        if nid and f"num:{nid}" in key_aliases:
+            canon_key = key_aliases[f"num:{nid}"]
+        elif f"hash:{h}" in key_aliases:
+            canon_key = key_aliases[f"hash:{h}"]
+
+        if not canon_key:
+            canon_key = f"ev_{h}"
+            if nid:
+                key_aliases[f"num:{nid}"] = canon_key
+            key_aliases[f"hash:{h}"] = canon_key
+
+        clusters.setdefault(canon_key, []).append(row)
+
+    for canon_key, cluster in clusters.items():
         if len(cluster) > 1:
             def score(x: Dict[str, Any]):
+                x_id = str(x.get("id", ""))
                 return (
                     1 if x.get("category") == CATEGORY_FOOD_EVENT else 0,
-                    0 if "my3." in str(x.get("id", "")) else 1,
+                    1 if x_id.startswith("ev_") else 0,
+                    0 if "my3." in x_id else 1,
                     len(str(x.get("description", ""))),
                     str(x.get("updated_at") or x.get("created_at") or "")
                 )
@@ -243,11 +332,19 @@ def _cleanup_stale_duplicates():
         return
 
     print(f"  [CLEANUP] Removing {len(stale_ids)} stale duplicate row(s) from Supabase...")
-    for sid in stale_ids:
+    stale_list = list(stale_ids)
+    batch_size = 100
+    for i in range(0, len(stale_list), batch_size):
+        batch = stale_list[i : i + batch_size]
         try:
-            supabase.table("events").delete().eq("id", sid).execute()
+            supabase.table("events").delete().in_("id", batch).execute()
         except Exception as e:
-            print(f"  [CLEANUP] Failed to delete {sid}: {e}")
+            print(f"  [CLEANUP] Batch delete failed, falling back to single delete: {e}")
+            for sid in batch:
+                try:
+                    supabase.table("events").delete().eq("id", sid).execute()
+                except Exception as row_e:
+                    print(f"  [CLEANUP] Failed to delete {sid}: {row_e}")
 
 
 def save_events(events_list: list):
@@ -262,7 +359,7 @@ def save_events(events_list: list):
         if not _is_valid_event(event):
             skipped += 1
             continue
-        row_id = event.get("id") or event.get("link", "")
+        row_id = event.get("id") or f"ev_{compute_event_fingerprint_hash(event.get('title', ''), event.get('date', ''))}"
         if not row_id or row_id in seen_row_ids:
             continue
         seen_row_ids.add(row_id)
@@ -318,7 +415,7 @@ def main():
         important_dates = registrar.scrape()
         for date_item in important_dates:
             date_item["category"] = CATEGORY_IMPORTANT_DATE
-            date_item["id"] = date_item.get("link", "") + "#" + date_item.get("title", "")[:50]
+            date_item["id"] = get_event_id(date_item)
             all_events.append(date_item)
     except Exception as e:
         print(f"  [ERROR] Registrar scraper failed: {e}")
@@ -326,7 +423,7 @@ def main():
         sbs = SBSScraper()
         for date_item in sbs.scrape():
             date_item["category"] = CATEGORY_IMPORTANT_DATE
-            date_item["id"] = date_item.get("link", "") + "#" + date_item.get("date", "") + date_item.get("title", "")[:30]
+            date_item["id"] = get_event_id(date_item)
             all_events.append(date_item)
     except Exception as e:
         print(f"  [ERROR] SBS scraper failed: {e}")
@@ -334,7 +431,7 @@ def main():
         official_dates = OfficialDatesScraper()
         for date_item in official_dates.scrape():
             date_item["category"] = CATEGORY_IMPORTANT_DATE
-            date_item["id"] = date_item.get("link", "") + "#" + date_item.get("title", "")[:50]
+            date_item["id"] = get_event_id(date_item)
             all_events.append(date_item)
     except Exception as e:
         print(f"  [ERROR] Official Dates scraper failed: {e}")
@@ -356,7 +453,7 @@ def main():
             continue
         for ev in food_events:
             ev["category"] = CATEGORY_FOOD_EVENT
-            ev["id"] = normalize_event_id(ev.get("link", ""))
+            ev["id"] = get_event_id(ev)
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
@@ -367,7 +464,7 @@ def main():
         dining = DiningScraper()
         for ev in dining.filter_food_events(dining.scrape()):
             ev["category"] = CATEGORY_FOOD_EVENT
-            ev["id"] = normalize_event_id(ev.get("link", ""))
+            ev["id"] = get_event_id(ev)
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
@@ -378,7 +475,6 @@ def main():
     # Retriever Essentials (permanent)
     retriever_events = [
         {
-            "id": "https://retrieveressentials.umbc.edu",
             "title": "The Essential Space (Free Grocery Store)",
             "date": "Ongoing (Check RAC 235 Hours)",
             "description": "A free grocery store located in the Retriever Activities Center, room 235.",
@@ -388,7 +484,6 @@ def main():
             "category": CATEGORY_FOOD_EVENT,
         },
         {
-            "id": "https://retrieveressentials.umbc.edu/#popup",
             "title": "Fresh Food Pop-Up",
             "date": "Every Thursday 2:15 PM - 2:45 PM",
             "description": "Located on the right side of the AOK Library.",
@@ -399,6 +494,7 @@ def main():
         },
     ]
     for ev in retriever_events:
+        ev["id"] = get_event_id(ev)
         food_links.add(ev["id"])
         all_events.append(ev)
 
@@ -413,9 +509,9 @@ def main():
         print(f"  [ERROR] SEB scraper failed: {e}")
         seb_events = []
         seb_food = []
-    seb_food_ids = {normalize_event_id(e.get("link", "")) for e in seb_food}
+    seb_food_ids = {get_event_id(e) for e in seb_food}
     for ev in seb_events:
-        ev["id"] = normalize_event_id(ev.get("link", ""))
+        ev["id"] = get_event_id(ev)
         if ev["id"] in seb_food_ids:
             ev["category"] = CATEGORY_FOOD_EVENT
             ev["food_keyword"] = ev.get("food_keyword", "free food")
@@ -446,7 +542,7 @@ def main():
             print(f"  [ERROR] myUMBC campus fallback failed: {e}")
 
     for ev in myumbc_cached_events:
-        ev["id"] = normalize_event_id(ev.get("link", ""))
+        ev["id"] = get_event_id(ev)
         if ev["id"] in food_links:
             continue
         ev["category"] = CATEGORY_CAMPUS_EVENT
@@ -476,7 +572,7 @@ def main():
         try:
             scraper_inst = scraper_class()
             for ev in scraper_inst.scrape():
-                eid = normalize_event_id(ev.get("link", ""))
+                eid = get_event_id(ev)
                 if not eid:
                     continue
                 ev["id"] = eid
@@ -520,19 +616,20 @@ def main():
             scraper = MyUMBCGroupScraper(group_url, source_name=name)
             group_events = scraper.scrape()
             food_from_group = scraper.filter_food_events(group_events)
-            food_from_group_ids = {normalize_event_id(e.get("link", "")) for e in food_from_group}
+            food_from_group_ids = {get_event_id(e) for e in food_from_group}
             for ev in group_events:
-                ev["id"] = normalize_event_id(ev.get("link", ""))
-                if ev["id"] in food_from_group_ids:
+                eid = get_event_id(ev)
+                ev["id"] = eid
+                if eid in food_from_group_ids:
                     ev["category"] = CATEGORY_FOOD_EVENT
-                    if ev["id"] not in food_links:
-                        food_links.add(ev["id"])
+                    if eid not in food_links:
+                        food_links.add(eid)
                         all_events.append(ev)
                         notify_food_event(ev)
                 else:
                     ev["category"] = CATEGORY_CAMPUS_EVENT
-                    if ev["id"] not in campus_seen:
-                        campus_seen.add(ev["id"])
+                    if eid not in campus_seen:
+                        campus_seen.add(eid)
                         all_events.append(ev)
         except Exception as e:
             print(f"  [ERROR] myUMBC group ({name}) failed: {e}")
