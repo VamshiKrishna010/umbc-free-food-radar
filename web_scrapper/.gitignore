@@ -1,41 +1,112 @@
-# Environment
+# ==============================
+# Environment / Secrets
+# ==============================
 .env
 .env.local
-.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
 
+# ==============================
+# Local auth/session cache
+# ==============================
+.auth/
+
+# ==============================
+# OS Generated Files
+# ==============================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ==============================
 # Python
+# ==============================
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
 venv/
 .venv/
-*.egg-info/
-.eggs/
+env/
+ENV/
+env.bak/
+venv.bak/
 
-# IDE
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ==============================
+# Node.js
+# ==============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# ==============================
+# Vercel
+# ==============================
+.vercel/
+.vercel
+
+# ==============================
+# Playwright
+# ==============================
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# ==============================
+# IDEs and Editors
+# ==============================
 .idea/
 .vscode/
 .cursor/
 *.swp
 *.swo
+*.swn
+.project
+.settings/
+.buildpath
 
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Scraper runtime data (regenerated on every run)
-events_data.json
-seen_events.json
-
-# Local auth/session cache
-.auth/
-
-# Personal / non-project files
+# ==============================
+# Legacy / Scratch / Personal
+# ==============================
 thaskarinchuta/
 greens_files/
-.vercel
-.env*.local
+events_data.json
+seen_events.json
+plan.txt

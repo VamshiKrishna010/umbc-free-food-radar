@@ -1,5 +1,4 @@
 from utils.food_detector import FoodDetector
-from scrapers.local_scraper import LocalistScraper
 
 def test_food_detector():
     detector = FoodDetector()

@@ -1,34 +1,37 @@
 import os
 import re
-from datetime import datetime
-from scrapers.myumbc_scraper import MyUMBCScraper
-from scrapers.registrar_scraper import RegistrarScraper
-from scrapers.umbc_events_scraper import UMBCEventsScraper
-from scrapers.campuslife_scraper import CampusLifeScraper
-from scrapers.seb_scraper import SEBScraper
-from scrapers.tickets_scraper import TicketsScraper
-from scrapers.sbs_scraper import SBSScraper
-# New scrapers
-from scrapers.studentaffairs_scraper import StudentAffairsScraper
-from scrapers.careers_scraper import CareersScraper
-from scrapers.library_scraper import LibraryScraper
-from scrapers.athletics_scraper import AthleticsScraper
-from scrapers.physics_scraper import PhysicsScraper
-from scrapers.biology_scraper import BiologyScraper
-from scrapers.mathstat_scraper import MathStatScraper
-from scrapers.department_seminar_scraper import DepartmentSeminarScraper
-from scrapers.dining_scraper import DiningScraper
-from scrapers.official_dates_scraper import OfficialDatesScraper
-from scrapers.gradschool_scraper import GradSchoolScraper
-from scrapers.myumbc_group_scraper import MyUMBCGroupScraper
-from scrapers.eventbrite_scraper import EventbriteScraper
-from scrapers.meetup_scraper import MeetupScraper
-from scrapers.baltimoremag_scraper import BaltimoreMagScraper
-from scrapers.patch_scraper import PatchCalendarScraper
-from utils.notifier import DiscordNotifier
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Set, cast
+
 from dotenv import load_dotenv
 
+from scrapers.athletics_scraper import AthleticsScraper
+from scrapers.baltimoremag_scraper import BaltimoreMagScraper
+from scrapers.biology_scraper import BiologyScraper
+from scrapers.campuslife_scraper import CampusLifeScraper
+from scrapers.careers_scraper import CareersScraper
+from scrapers.department_seminar_scraper import DepartmentSeminarScraper
+from scrapers.dining_scraper import DiningScraper
+from scrapers.eventbrite_scraper import EventbriteScraper
+from scrapers.gradschool_scraper import GradSchoolScraper
+from scrapers.library_scraper import LibraryScraper
+from scrapers.mathstat_scraper import MathStatScraper
+from scrapers.meetup_scraper import MeetupScraper
+from scrapers.myumbc_group_scraper import MyUMBCGroupScraper
+from scrapers.myumbc_scraper import MyUMBCScraper
+from scrapers.official_dates_scraper import OfficialDatesScraper
+from scrapers.patch_scraper import PatchCalendarScraper
+from scrapers.physics_scraper import PhysicsScraper
+from scrapers.registrar_scraper import RegistrarScraper
+from scrapers.sbs_scraper import SBSScraper
+from scrapers.seb_scraper import SEBScraper
+from scrapers.studentaffairs_scraper import StudentAffairsScraper
+from scrapers.tickets_scraper import TicketsScraper
+from scrapers.umbc_events_scraper import UMBCEventsScraper
+from utils.notifier import DiscordNotifier
+
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 discord_notifier = DiscordNotifier(DISCORD_WEBHOOK_URL)
@@ -40,16 +43,21 @@ FOOD_EVENT_URLS = [
 ]
 
 # Supabase Setup
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "").strip()
 
-try:
-    from supabase import create_client, Client
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("Successfully connected to Supabase")
-except Exception as e:
-    print(f"Failed to connect to Supabase: {e}")
-    supabase = None
+supabase: Optional[Any] = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        from supabase import Client, create_client
+        supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        supabase = supabase_client
+        print("Successfully connected to Supabase")
+    except Exception as e:
+        print(f"Failed to connect to Supabase: {e}")
+        supabase = None
+else:
+    print("Supabase credentials not configured.")
 
 # Category constants for filtering in DB and frontend
 CATEGORY_IMPORTANT_DATE = "important_date"
@@ -69,23 +77,24 @@ def normalize_event_id(link: str) -> str:
     return link
 
 
-def load_seen_ids():
+def load_seen_ids() -> Set[str]:
     if supabase is None:
         return set()
     try:
         response = supabase.table("events").select("id").execute()
-        return set(row["id"] for row in response.data)
+        rows = cast(List[Dict[str, Any]], response.data or [])
+        return {str(row["id"]) for row in rows if row.get("id")}
     except Exception as e:
         print(f"Error loading seen IDs: {e}")
     return set()
 
 
-def load_existing_events():
+def load_existing_events() -> List[Dict[str, Any]]:
     if supabase is None:
         return []
     try:
         response = supabase.table("events").select("*").execute()
-        return response.data
+        return cast(List[Dict[str, Any]], response.data or [])
     except Exception as e:
         print(f"Error loading events: {e}")
     return []
@@ -96,16 +105,25 @@ _PLACEHOLDER_TITLES = {
     'view more', 'featured events', 'weekend', 'today',
 }
 
+_PLACEHOLDER_DESCS = {
+    'view more', 'featured events view more', 'weekend view more',
+}
+
 
 def _is_valid_event(event: dict) -> bool:
     """Reject placeholder / junk events before they reach Supabase."""
+    if not event:
+        return False
+    eid = (event.get("id") or event.get("link") or "").strip()
+    if not eid:
+        return False
     title = (event.get("title") or "").strip()
     if title.lower() in _PLACEHOLDER_TITLES:
         return False
     if len(title) < 4:
         return False
-    desc = (event.get("description") or "").strip()
-    if desc.lower() in {'view more', 'featured events view more', 'weekend view more', ''}:
+    desc = (event.get("description") or "").strip().lower()
+    if desc in _PLACEHOLDER_DESCS:
         return False
     if re.match(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s', title) and len(title) < 15:
         return False
@@ -119,7 +137,7 @@ def _dedupe_events(events_list: list) -> list:
     unique = []
     for ev in events_list:
         eid = ev.get("id") or ev.get("link", "")
-        if eid in seen_ids:
+        if not eid or eid in seen_ids:
             continue
         seen_ids.add(eid)
         title_norm = re.sub(r"\s+", " ", (ev.get("title") or "").strip().lower())
@@ -140,25 +158,21 @@ def _cleanup_stale_duplicates():
     if supabase is None:
         return
     try:
-        rows = supabase.table("events").select("id, link").execute().data
+        response = supabase.table("events").select("id, link").execute()
+        rows = cast(List[Dict[str, Any]], response.data or [])
     except Exception as e:
         print(f"  [CLEANUP] Failed to read events: {e}")
         return
 
-    normalized_ids = set()
+    all_ids = {str(row.get("id", "")) for row in rows}
     stale_ids = []
     for row in rows:
-        rid = row.get("id", "")
-        link = row.get("link", "")
+        rid = str(row.get("id", ""))
+        link = str(row.get("link", ""))
         nid = normalize_event_id(link) if link else rid
-        if nid != rid and nid.startswith("localist:"):
-            if nid in normalized_ids:
-                stale_ids.append(rid)
-            else:
-                normalized_ids.add(nid)
-                stale_ids.append(rid)
-        else:
-            normalized_ids.add(rid)
+        # Only treat raw URL as stale if the normalized ID actually exists in Supabase
+        if nid != rid and nid.startswith("localist:") and nid in all_ids:
+            stale_ids.append(rid)
 
     if not stale_ids:
         return
@@ -170,31 +184,45 @@ def _cleanup_stale_duplicates():
             print(f"  [CLEANUP] Failed to delete {sid}: {e}")
 
 
-def save_events(events_list):
+def save_events(events_list: list):
     if supabase is None:
         return
     events_list = _dedupe_events(events_list)
-    now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     skipped = 0
-    try:
-        for event in events_list:
-            if not _is_valid_event(event):
-                skipped += 1
-                continue
-            row = {
-                "id": event.get("id") or event.get("link", ""),
-                "title": event.get("title", ""),
-                "date": event.get("date", ""),
-                "description": event.get("description", ""),
-                "link": event.get("link", ""),
-                "food_keyword": event.get("food_keyword", ""),
-                "source": event.get("source", ""),
-                "category": event.get("category", CATEGORY_CAMPUS_EVENT),
-                "updated_at": now_iso,
-            }
-            supabase.table("events").upsert(row).execute()
-    except Exception as e:
-        print(f"Error saving events: {e}")
+    valid_rows = []
+    for event in events_list:
+        if not _is_valid_event(event):
+            skipped += 1
+            continue
+        row = {
+            "id": event.get("id") or event.get("link", ""),
+            "title": event.get("title", ""),
+            "date": event.get("date", ""),
+            "description": event.get("description", ""),
+            "link": event.get("link", ""),
+            "food_keyword": event.get("food_keyword", ""),
+            "source": event.get("source", ""),
+            "category": event.get("category", CATEGORY_CAMPUS_EVENT),
+            "updated_at": now_iso,
+        }
+        valid_rows.append(row)
+
+    # Batch upsert in chunks of 100 for dramatic speedup and reliability
+    chunk_size = 100
+    for i in range(0, len(valid_rows), chunk_size):
+        chunk = valid_rows[i:i + chunk_size]
+        try:
+            supabase.table("events").upsert(chunk).execute()
+        except Exception as e:
+            print(f"Error saving events batch {i // chunk_size + 1}: {e}")
+            # Fallback to single-row upsert so one malformed row does not drop the entire chunk
+            for row in chunk:
+                try:
+                    supabase.table("events").upsert(row).execute()
+                except Exception as row_e:
+                    print(f"Failed to upsert event {row.get('id')}: {row_e}")
+
     if skipped:
         print(f"  Skipped {skipped} invalid/placeholder events")
     _cleanup_stale_duplicates()
@@ -205,6 +233,12 @@ def main():
 
     seen_ids = load_seen_ids()
     all_events = []
+
+    def notify_food_event(ev: dict):
+        eid = ev.get("id")
+        if eid and eid not in seen_ids and _is_valid_event(ev):
+            seen_ids.add(eid)
+            discord_notifier.notify(ev)
 
     # 1. Important dates (Registrar + SBS billing + Official Dates)
     print("Scraping important dates (Registrar, SBS, Official Dates)...")
@@ -237,10 +271,14 @@ def main():
     # 2. Food events from myUMBC, Dining, and Retriever Essentials
     print("Scraping food events (myUMBC, Dining)...")
     food_links = set()
+    myumbc_cached_events = []
+
     for url in FOOD_EVENT_URLS:
         try:
             scraper = MyUMBCScraper(url)
             all_from_page = scraper.scrape()
+            if url == "https://my.umbc.edu/events":
+                myumbc_cached_events = all_from_page
             food_events = scraper.filter_food_events(all_from_page)
         except Exception as e:
             print(f"  [ERROR] myUMBC scraper ({url}) failed: {e}")
@@ -251,8 +289,7 @@ def main():
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
-                if ev["id"] not in seen_ids:
-                    discord_notifier.notify(ev)
+                notify_food_event(ev)
 
     # Dining events (filter for food)
     try:
@@ -263,8 +300,7 @@ def main():
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
-                if ev["id"] not in seen_ids:
-                    discord_notifier.notify(ev)
+                notify_food_event(ev)
     except Exception as e:
         print(f"  [ERROR] Dining scraper failed: {e}")
 
@@ -291,7 +327,9 @@ def main():
             "category": CATEGORY_FOOD_EVENT,
         },
     ]
-    all_events.extend(retriever_events)
+    for ev in retriever_events:
+        food_links.add(ev["id"])
+        all_events.append(ev)
 
     # 3. SEB events (Student Events Board) - check for food
     campus_seen = set()
@@ -313,8 +351,7 @@ def main():
             if ev["id"] not in food_links:
                 food_links.add(ev["id"])
                 all_events.append(ev)
-                if ev["id"] not in seen_ids:
-                    discord_notifier.notify(ev)
+                notify_food_event(ev)
         else:
             ev["category"] = CATEGORY_CAMPUS_EVENT
             if ev["id"] not in campus_seen:
@@ -329,19 +366,22 @@ def main():
     # 4. Campus events from myUMBC, umbc.edu, campuslife, tickets + all new sources
     print("Scraping campus events (myUMBC, UMBC Events, Campus Life, Tickets, Student Affairs,")
     print("  Careers, Library, Athletics, Physics, Biology, Math/Stat, Dept Seminars, Grad School)...")
-    for url in ["https://my.umbc.edu/events"]:
+
+    # Reuse myUMBC events already scraped in Section 2 to avoid redundant network fetch
+    if not myumbc_cached_events:
         try:
-            scraper = MyUMBCScraper(url)
-            for ev in scraper.scrape():
-                ev["id"] = normalize_event_id(ev.get("link", ""))
-                if ev["id"] in food_links:
-                    continue
-                ev["category"] = CATEGORY_CAMPUS_EVENT
-                if ev["id"] not in campus_seen:
-                    campus_seen.add(ev["id"])
-                    all_events.append(ev)
+            myumbc_cached_events = MyUMBCScraper("https://my.umbc.edu/events").scrape()
         except Exception as e:
-            print(f"  [ERROR] myUMBC campus ({url}) failed: {e}")
+            print(f"  [ERROR] myUMBC campus fallback failed: {e}")
+
+    for ev in myumbc_cached_events:
+        ev["id"] = normalize_event_id(ev.get("link", ""))
+        if ev["id"] in food_links:
+            continue
+        ev["category"] = CATEGORY_CAMPUS_EVENT
+        if ev["id"] not in campus_seen:
+            campus_seen.add(ev["id"])
+            all_events.append(ev)
 
     campus_scrapers = [
         (UMBCEventsScraper,        "UMBC Events"),
@@ -389,6 +429,7 @@ def main():
                     if ev["id"] not in food_links:
                         food_links.add(ev["id"])
                         all_events.append(ev)
+                        notify_food_event(ev)
                 else:
                     ev["category"] = CATEGORY_CAMPUS_EVENT
                     if ev["id"] not in campus_seen:
