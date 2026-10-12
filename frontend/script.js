@@ -412,7 +412,15 @@
       }
 
       // 4. Date filter (When)
-      if (activeDateFilter !== 'upcoming' && e.start) {
+      if (activeDateFilter === 'upcoming') {
+        if (e.start) {
+          const nDays = dayDiff(e.start, now);
+          // If the event finished before today, exclude it from upcoming view
+          if (nDays < 0 && (e.end ? e.end < now : true)) {
+            return false;
+          }
+        }
+      } else if (e.start) {
         const nDays = dayDiff(e.start, now);
         if (activeDateFilter === 'today' && nDays !== 0) return false;
         if (activeDateFilter === 'tomorrow' && nDays !== 1) return false;
@@ -724,7 +732,20 @@
       groups.get(groupKey).push(e);
     });
 
-    return [...groups.entries()].map(([keyTime, items]) => {
+    const sortedEntries = [...groups.entries()].sort(([tA], [tB]) => {
+      // Put dated events in chronological order, ongoing resources at the bottom
+      if (tA === 0) return 1;
+      if (tB === 0) return -1;
+      return tA - tB;
+    });
+
+    return sortedEntries.map(([keyTime, items]) => {
+      items.sort((a, b) => {
+        const timeA = a.start ? a.start.getTime() : 0;
+        const timeB = b.start ? b.start.getTime() : 0;
+        return timeA - timeB;
+      });
+
       if (keyTime === 0) {
         return `
           <section class="day">
@@ -1110,11 +1131,14 @@
     const filtered = getFilteredEvents();
     const openedEvent = openEventId ? allEvents.find((e) => e.id === openEventId) : null;
 
+    const now = new Date();
+    const isCurrent = (e) => !e.start || e.kind === 'ongoing' || e.kind === 'recurring' || (e.end ? e.end >= now : dayDiff(e.start, now) >= 0);
+
     // Primary & bottom nav update
     const NAV = [
-      { id: 'food', label: 'Free food', icon: 'food', n: allEvents.filter((e) => e.category === 'food_event').length },
-      { id: 'events', label: 'Events', icon: 'ticket', n: allEvents.filter((e) => e.category === 'campus_event').length },
-      { id: 'deadlines', label: 'Deadlines', icon: 'alarm', n: allEvents.filter((e) => e.category === 'important_date').length },
+      { id: 'food', label: 'Free food', icon: 'food', n: allEvents.filter((e) => e.category === 'food_event' && isCurrent(e)).length },
+      { id: 'events', label: 'Events', icon: 'ticket', n: allEvents.filter((e) => e.category === 'campus_event' && isCurrent(e)).length },
+      { id: 'deadlines', label: 'Deadlines', icon: 'alarm', n: allEvents.filter((e) => e.category === 'important_date' && isCurrent(e)).length },
       { id: 'saved', label: 'Saved', icon: 'bookmark', n: savedEventIds.size },
     ];
 
