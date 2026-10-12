@@ -961,9 +961,15 @@
                   <dt>Where</dt>
                   <dd>
                     ${esc(ev.location)}<br>
-                    <a href="https://map.umbc.edu/?id=1941#!s/?q=${encodeURIComponent(ev.location)}" target="_blank" rel="noopener">
-                      Open in UMBC campus map &rarr;
-                    </a>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                      <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location + ', UMBC')}" target="_blank" rel="noopener">
+                        Open in Google Maps &rarr;
+                      </a>
+                      <span style="color:var(--ink-4);">&bull;</span>
+                      <a href="https://fm.umbc.edu/maps/" target="_blank" rel="noopener" style="color:var(--ink-3);text-decoration:underline;font-size:12px;">
+                        UMBC Campus Directory
+                      </a>
+                    </div>
                   </dd>
                 </div>
               </div>
