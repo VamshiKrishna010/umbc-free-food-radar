@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#FDB515">
   <meta name="description" content="Important dates, free food & campus events at UMBC. One place for Registrar, myUMBC, SEB, SBS & more.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Food Radar">
+  <link rel="apple-touch-icon" href="icon.svg">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <title>UMBC Food Radar - Important Dates, Free Food & Campus Events</title>
@@ -13,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=5">
 
   <!-- Vercel Web Analytics -->
   <script>
@@ -65,10 +69,15 @@
   </header>
 
   <!-- Mobile Collapsible Search Input -->
-  <div class="mobile-search-bar mobile-only" id="mobileSearchBar" style="display:none">
-    <svg class="icon icon-sm"><use href="#i-search"/></svg>
-    <input type="search" id="mobileSearchInput" placeholder="Search food, events, rooms..." autocomplete="off">
-    <button class="icon-btn" id="closeMobileSearchBtn" style="border:0;width:32px;height:32px;" aria-label="Close search">
+  <div class="mobile-search-bar" id="mobileSearchBar" hidden>
+    <div class="mobile-search-inner">
+      <svg class="icon icon-sm" aria-hidden="true"><use href="#i-search"/></svg>
+      <input type="search" id="mobileSearchInput" placeholder="Search food, events, rooms..." autocomplete="off" autocapitalize="none">
+      <button class="icon-btn mobile-clear-btn" id="clearMobileSearchBtn" aria-label="Clear search text" style="display:none">
+        <svg class="icon icon-sm"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <button class="icon-btn" id="closeMobileSearchBtn" aria-label="Close search">
       <svg class="icon"><use href="#i-x"/></svg>
     </button>
   </div>
@@ -79,7 +88,7 @@
   </div>
 
   <!-- Bottom Navigation (Mobile) -->
-  <nav class="bottom-nav mobile-only" id="bottomNav" aria-label="Sections"></nav>
+  <nav class="bottom-nav" id="bottomNav" aria-label="Sections"></nav>
 
   <!-- SVG Icon Sprite (Lucide-Style) -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -108,7 +117,7 @@
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
   </svg>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=5"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});

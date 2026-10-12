@@ -42,6 +42,8 @@
 
   // Set initial theme
   document.documentElement.dataset.theme = activeTheme;
+  const initialMetaTheme = document.querySelector('meta[name="theme-color"]');
+  if (initialMetaTheme) initialMetaTheme.content = activeTheme === 'dark' ? '#0E1117' : '#FDB515';
 
   // --- Utility Functions ---
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -89,6 +91,7 @@
 
   function toggleSaveEvent(id, ev) {
     if (ev) ev.stopPropagation();
+    if (navigator.vibrate) { try { navigator.vibrate(10); } catch (_) {} }
     if (savedEventIds.has(id)) {
       savedEventIds.delete(id);
       showToast('Removed from saved items');
@@ -104,7 +107,10 @@
     activeTheme = activeTheme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = activeTheme;
     localStorage.setItem(STORAGE_KEY_THEME, activeTheme);
-    document.getElementById('themeBtn').innerHTML = icon(activeTheme === 'dark' ? 'sun' : 'moon');
+    const themeBtn = document.getElementById('themeBtn');
+    if (themeBtn) themeBtn.innerHTML = icon(activeTheme === 'dark' ? 'sun' : 'moon');
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.content = activeTheme === 'dark' ? '#0E1117' : '#FDB515';
     updateUrlParams();
   }
 
@@ -639,6 +645,7 @@
 
   function renderSourcesPopover(sourceCounts) {
     return `
+      <div class="popover-scrim mobile-only" onclick="window.app.toggleSourcesPopover(event)"></div>
       <div class="popover" role="dialog" aria-label="Filter by source" onclick="event.stopPropagation()">
         <h4>Filter by campus source</h4>
         ${[...sourceCounts.entries()].map(([srcName, srcCount]) => {
@@ -1005,7 +1012,9 @@
     if (isDeadline) {
       whenText = ev.start ? longDate(ev.start) : 'TBA';
     } else if (ev.start) {
-      whenText = `${dayName(ev.start)}, ${longDate(ev.start)}<br>${timeStr(ev.start)}${ev.end ? ` to ${timeStr(ev.end)}` : ''}`;
+      const dn = dayName(ev.start);
+      const isRel = dn === 'Today' || dn === 'Tomorrow' || dn === 'Yesterday';
+      whenText = `${isRel ? `${dn}, ` : ''}${longDate(ev.start)}<br>${timeStr(ev.start)}${ev.end ? ` to ${timeStr(ev.end)}` : ''}`;
     } else if (ev.recurrence_text) {
       whenText = esc(ev.recurrence_text);
     }
@@ -1014,9 +1023,16 @@
       x.id !== ev.id && x.category === 'food_event' && x.start && x.start.toDateString() === ev.start.toDateString()
     ).slice(0, 3);
 
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const mapsLink = isIOS
+      ? `https://maps.apple.com/?q=${encodeURIComponent(ev.location + ', UMBC')}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location + ', UMBC')}`;
+    const mapsLabel = isIOS ? 'Open in Apple Maps &rarr;' : 'Open in Google Maps &rarr;';
+
     return `
       <div class="scrim" onclick="window.app.closeDrawer()"></div>
       <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+        <div class="drawer-handle mobile-only" aria-hidden="true"></div>
         <div class="drawer-top">
           <div class="crumbs">
             ${isDeadline ? '<span class="tag urgent">Deadline</span>' : isFood ? '<span class="tag food">Free food</span>' : `<span class="tag">${esc(ev.event_type || 'Event')}</span>`}
@@ -1060,8 +1076,8 @@
                     ` : `
                       <br>
                       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
-                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location + ', UMBC')}" target="_blank" rel="noopener">
-                          Open in Google Maps &rarr;
+                        <a href="${mapsLink}" target="_blank" rel="noopener">
+                          ${mapsLabel}
                         </a>
                         <span style="color:var(--ink-4);">&bull;</span>
                         <a href="https://fm.umbc.edu/maps/" target="_blank" rel="noopener" style="color:var(--ink-3);text-decoration:underline;font-size:12px;">
@@ -1115,10 +1131,10 @@
             ${icon('calendar', 'icon-sm')} Add to calendar
           </button>
           <button class="btn ${isSaved ? 'gold' : ''}" onclick="window.app.toggleSave('${ev.id}', event)">
-            ${icon('bookmark', 'icon-sm')} ${isSaved ? 'Saved' : 'Save'}
+            ${icon('bookmark', 'icon-sm')} <span>${isSaved ? 'Saved' : 'Save'}</span>
           </button>
           <button class="btn" onclick="window.app.shareEvent('${ev.id}')">
-            ${icon('share', 'icon-sm')} <span class="desktop-only">Share</span>
+            ${icon('share', 'icon-sm')} <span>Share</span>
           </button>
         </div>
       </aside>
@@ -1151,7 +1167,10 @@
 
     document.getElementById('bottomNav').innerHTML = NAV.map((n) => `
       <button data-view="${n.id}" ${n.id === activeView ? 'aria-current="page"' : ''} onclick="window.app.setView('${n.id}')">
-        <span class="pill">${icon(n.icon)}</span>
+        <span class="pill">
+          ${icon(n.icon)}
+          ${n.n > 0 ? `<span class="badge">${n.n > 99 ? '99+' : n.n}</span>` : ''}
+        </span>
         ${n.label}
       </button>
     `).join('');
@@ -1193,6 +1212,7 @@
     appEl.innerHTML = contentHtml + renderDrawer(openedEvent);
     if (openedEvent) {
       document.body.style.overflow = 'hidden';
+      attachDrawerGestures();
     } else {
       document.body.style.overflow = '';
     }
@@ -1200,9 +1220,55 @@
     updateUrlParams();
   }
 
+  function attachDrawerGestures() {
+    const drawer = document.querySelector('.drawer');
+    if (!drawer || window.innerWidth > 960) return;
+
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
+
+    const dragTargets = [
+      drawer.querySelector('.drawer-handle'),
+      drawer.querySelector('.drawer-top')
+    ].filter(Boolean);
+
+    dragTargets.forEach((el) => {
+      el.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+        currentY = startY;
+        isDragging = true;
+        drawer.style.transition = 'none';
+      }, { passive: true });
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      currentY = e.touches[0].clientY;
+      const deltaY = currentY - startY;
+      if (deltaY > 0) {
+        drawer.style.transform = `translateY(${deltaY}px)`;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      const deltaY = currentY - startY;
+      drawer.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+      if (deltaY > 80) {
+        drawer.style.transform = 'translateY(100%)';
+        setTimeout(() => window.app.closeDrawer(), 180);
+      } else {
+        drawer.style.transform = 'translateY(0)';
+      }
+    }, { passive: true });
+  }
+
   // --- Public App Interface for Event Handlers ---
   window.app = {
     setView(v) {
+      if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
       activeView = v;
       activeDateFilter = 'upcoming';
       renderApp();
@@ -1255,6 +1321,10 @@
       freeFoodOnlyFilter = false;
       const sInput = document.getElementById('searchInput');
       if (sInput) sInput.value = '';
+      const mInput = document.getElementById('mobileSearchInput');
+      if (mInput) mInput.value = '';
+      const clrBtn = document.getElementById('clearMobileSearchBtn');
+      if (clrBtn) clrBtn.style.display = 'none';
       renderApp();
     },
 
@@ -1364,21 +1434,45 @@
     const mobileSearchBtn = document.getElementById('mobileSearchBtn');
     const mobileSearchBar = document.getElementById('mobileSearchBar');
     const closeMobileSearchBtn = document.getElementById('closeMobileSearchBtn');
+    const clearMobileSearchBtn = document.getElementById('clearMobileSearchBtn');
     const mobileSearchInput = document.getElementById('mobileSearchInput');
 
     if (mobileSearchBtn && mobileSearchBar) {
       mobileSearchBtn.addEventListener('click', () => {
-        const isHidden = mobileSearchBar.style.display === 'none';
-        mobileSearchBar.style.display = isHidden ? 'flex' : 'none';
-        if (isHidden && mobileSearchInput) mobileSearchInput.focus();
+        const isHidden = mobileSearchBar.hasAttribute('hidden');
+        if (isHidden) {
+          mobileSearchBar.removeAttribute('hidden');
+          if (mobileSearchInput) {
+            mobileSearchInput.value = searchQuery;
+            mobileSearchInput.focus();
+            if (clearMobileSearchBtn) clearMobileSearchBtn.style.display = searchQuery ? 'grid' : 'none';
+          }
+        } else {
+          mobileSearchBar.setAttribute('hidden', '');
+        }
       });
     }
 
     if (closeMobileSearchBtn && mobileSearchBar) {
       closeMobileSearchBtn.addEventListener('click', () => {
-        mobileSearchBar.style.display = 'none';
+        mobileSearchBar.setAttribute('hidden', '');
         searchQuery = '';
         if (mobileSearchInput) mobileSearchInput.value = '';
+        if (searchInput) searchInput.value = '';
+        if (clearMobileSearchBtn) clearMobileSearchBtn.style.display = 'none';
+        renderApp();
+      });
+    }
+
+    if (clearMobileSearchBtn) {
+      clearMobileSearchBtn.addEventListener('click', () => {
+        searchQuery = '';
+        if (mobileSearchInput) {
+          mobileSearchInput.value = '';
+          mobileSearchInput.focus();
+        }
+        if (searchInput) searchInput.value = '';
+        clearMobileSearchBtn.style.display = 'none';
         renderApp();
       });
     }
@@ -1386,6 +1480,8 @@
     if (mobileSearchInput) {
       mobileSearchInput.addEventListener('input', (e) => {
         searchQuery = e.target.value;
+        if (clearMobileSearchBtn) clearMobileSearchBtn.style.display = searchQuery ? 'grid' : 'none';
+        if (searchInput) searchInput.value = searchQuery;
         renderApp();
       });
     }

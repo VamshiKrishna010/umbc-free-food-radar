@@ -110,3 +110,5 @@ greens_files/
 events_data.json
 seen_events.json
 plan.txt
+graphify-out/
+.agents/

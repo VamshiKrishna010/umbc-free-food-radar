@@ -1,4 +1,4 @@
-const CACHE_NAME = 'umbc-food-radar-v3';
+const CACHE_NAME = 'umbc-food-radar-v5';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
