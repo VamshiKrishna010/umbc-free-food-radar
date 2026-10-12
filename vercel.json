@@ -1,6 +1,12 @@
 {
   "version": 2,
   "name": "umbc-food-radar",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/", "destination": "/frontend/index.html" },
+    { "source": "/event.html", "destination": "/frontend/event.html" },
+    { "source": "/(.*)", "destination": "/frontend/$1" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -24,6 +30,19 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     }
