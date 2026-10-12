@@ -1,7 +1,14 @@
 import os
 import re
+import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, cast
+
+# Ensure UTF-8 output on all environments (prevents Windows cp1252 charmap crashes)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from dotenv import load_dotenv
 
@@ -467,18 +474,46 @@ def main():
     ]
     for scraper_class, name in campus_scrapers:
         try:
-            for ev in scraper_class().scrape():
-                ev["category"] = CATEGORY_CAMPUS_EVENT
-                ev["id"] = normalize_event_id(ev.get("link", ""))
-                if ev["id"] not in campus_seen:
-                    campus_seen.add(ev["id"])
-                    all_events.append(ev)
+            scraper_inst = scraper_class()
+            for ev in scraper_inst.scrape():
+                eid = normalize_event_id(ev.get("link", ""))
+                if not eid:
+                    continue
+                ev["id"] = eid
+
+                # Check for food keywords across campus events
+                all_text = f"{ev.get('title', '')} {ev.get('description', '')}"
+                is_food = getattr(scraper_inst, "detector", None) and scraper_inst.detector.contains_food(all_text)
+                if is_food:
+                    ev["category"] = CATEGORY_FOOD_EVENT
+                    ev["food_keyword"] = scraper_inst.detector.get_matched_item(all_text)
+                    if eid not in food_links:
+                        food_links.add(eid)
+                        all_events.append(ev)
+                        notify_food_event(ev)
+                else:
+                    ev["category"] = CATEGORY_CAMPUS_EVENT
+                    if eid not in campus_seen:
+                        campus_seen.add(eid)
+                        all_events.append(ev)
         except Exception as e:
             print(f"  [ERROR] {name} scraper failed: {e}")
 
-    # myUMBC student org groups
+    # myUMBC high-activity student org and campus office groups
     MYUMBC_GROUPS = [
-        ("https://my3.my.umbc.edu/groups/isa", "ISA (Indian Student Association)"),
+        ("https://my3.my.umbc.edu/groups/ocss", "Off-Campus Student Services"),
+        ("https://my3.my.umbc.edu/groups/gsa", "Graduate Student Association"),
+        ("https://my3.my.umbc.edu/groups/womenscenter", "Women's Center"),
+        ("https://my3.my.umbc.edu/groups/sga", "Student Government Association"),
+        ("https://my3.my.umbc.edu/groups/seb", "Student Events Board"),
+        ("https://my3.my.umbc.edu/groups/retrieveressentials", "Retriever Essentials"),
+        ("https://my3.my.umbc.edu/groups/bsu", "Black Student Union"),
+        ("https://my3.my.umbc.edu/groups/isa", "Indian Student Association"),
+        ("https://my3.my.umbc.edu/groups/nsbe", "National Society of Black Engineers"),
+        ("https://my3.my.umbc.edu/groups/hackumbc", "HackUMBC"),
+        ("https://my3.my.umbc.edu/groups/swe", "Society of Women Engineers"),
+        ("https://my3.my.umbc.edu/groups/shpe", "Society of Hispanic Professional Engineers"),
+        ("https://my3.my.umbc.edu/groups/ieee", "IEEE UMBC Student Branch"),
     ]
     for group_url, name in MYUMBC_GROUPS:
         try:

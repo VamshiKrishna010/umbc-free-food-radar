@@ -12,10 +12,10 @@ class DepartmentSeminarScraper(BaseScraper):
 
     SOURCES = [
         {
-            "url": "https://news.cs.umbc.edu/csee-colloquia-and-talks/",
-            "base": "https://news.cs.umbc.edu",
-            "name": "CS/EE Department",
-            "link_pattern": r"news\.cs\.umbc\.edu/\d{4}/\d{2}/\d{2}/|/\d{4}/\d{2}/\d{2}/",
+            "url": "https://cahss.umbc.edu/events/",
+            "base": "https://cahss.umbc.edu",
+            "name": "CAHSS (Arts, Humanities & Social Sciences)",
+            "link_pattern": r"cahss\.umbc\.edu/events?/event/\d+|/events?/event/\d+",
         },
         {
             "url": "https://ges.umbc.edu/home/seminars/",
