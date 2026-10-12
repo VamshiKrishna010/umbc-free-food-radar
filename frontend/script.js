@@ -142,8 +142,8 @@
   function extractLocation(text, rawLocation) {
     if (rawLocation && rawLocation.trim()) return rawLocation.trim();
     if (!text) return 'UMBC Campus';
-    const locMatch = text.match(/\b(ITE \d+|RAC \d+|Commons [A-Za-z0-9 ]+|Skylight Room|AOK Library[A-Za-z0-9, ]*|Lecture Hall \d+|Physics \d+|Math & Psychology \d+|University Center \d+|Retriever Activities Center)\b/i);
-    if (locMatch) return locMatch[1].trim();
+    const locMatch = text.match(/\b(The Commons(?:\s*:\s*[A-Za-z0-9 ]+)?|Commons(?:\s*:\s*[A-Za-z0-9 ]+)?|University Center(?:\s*:\s*[A-Za-z0-9 ]+)?|UC(?:\s*:\s*[0-9A-Za-z ]+)?|Retriever Activities Center|RAC(?:\s*:\s*[0-9A-Za-z ]+)?|AOK Library(?:\s*:\s*[0-9A-Za-z ]+)?|ITE(?:\s*:\s*[0-9A-Za-z ]+)?|Fine Arts(?:\s*:\s*[0-9A-Za-z ]+)?|Engineering(?:\s*:\s*[0-9A-Za-z ]+)?|Public Policy(?:\s*:\s*[0-9A-Za-z ]+)?|ILSB(?:\s*:\s*[0-9A-Za-z ]+)?|Meyerhoff(?:\s*:\s*[0-9A-Za-z ]+)?|Sondheim(?:\s*:\s*[0-9A-Za-z ]+)?|Sherman(?:\s*:\s*[0-9A-Za-z ]+)?|Lecture Hall \d+|Skylight Room|Fireside Lounge|Flat Tuesday)\b/i);
+    if (locMatch) return locMatch[1].replace(/\s+/g, ' ').trim().slice(0, 45);
     return 'UMBC Campus';
   }
 
@@ -960,16 +960,21 @@
                 <div>
                   <dt>Where</dt>
                   <dd>
-                    ${esc(ev.location)}<br>
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
-                      <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location + ', UMBC')}" target="_blank" rel="noopener">
-                        Open in Google Maps &rarr;
-                      </a>
-                      <span style="color:var(--ink-4);">&bull;</span>
-                      <a href="https://fm.umbc.edu/maps/" target="_blank" rel="noopener" style="color:var(--ink-3);text-decoration:underline;font-size:12px;">
-                        UMBC Campus Directory
-                      </a>
-                    </div>
+                    ${esc(ev.location)}
+                    ${/online|zoom|virtual|webex|teams|discord/i.test(ev.location) ? `
+                      <span class="tag" style="margin-left:6px;font-size:11px;">Virtual / Online</span>
+                    ` : `
+                      <br>
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location + ', UMBC')}" target="_blank" rel="noopener">
+                          Open in Google Maps &rarr;
+                        </a>
+                        <span style="color:var(--ink-4);">&bull;</span>
+                        <a href="https://fm.umbc.edu/maps/" target="_blank" rel="noopener" style="color:var(--ink-3);text-decoration:underline;font-size:12px;">
+                          UMBC Campus Directory
+                        </a>
+                      </div>
+                    `}
                   </dd>
                 </div>
               </div>
