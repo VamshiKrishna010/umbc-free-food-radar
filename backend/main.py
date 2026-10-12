@@ -250,12 +250,17 @@ def save_events(events_list: list):
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     skipped = 0
     valid_rows = []
+    seen_row_ids = set()
     for event in events_list:
         if not _is_valid_event(event):
             skipped += 1
             continue
+        row_id = event.get("id") or event.get("link", "")
+        if not row_id or row_id in seen_row_ids:
+            continue
+        seen_row_ids.add(row_id)
         row = {
-            "id": event.get("id") or event.get("link", ""),
+            "id": row_id,
             "title": event.get("title", ""),
             "date": event.get("date", ""),
             "description": event.get("description", ""),
