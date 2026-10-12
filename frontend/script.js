@@ -15,12 +15,45 @@
   const HOUR = 3600000;
   const DAY = 86400000;
 
+  // --- Sanitization & Helper Functions ---
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const VALID_VIEWS = new Set(['food', 'events', 'deadlines', 'saved']);
+  const VALID_WHEN_TOKENS = new Set(['upcoming', 'today', 'tomorrow', 'week']);
+  const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+  function isMy3Host(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    try {
+      const parsed = new URL(urlStr, window.location.origin);
+      return parsed.hostname.toLowerCase() === 'my3.my.umbc.edu';
+    } catch {
+      return false;
+    }
+  }
+
+  function isSafeId(id) {
+    return Boolean(id && typeof id === 'string' && /^[a-zA-Z0-9_\-:]{1,64}$/.test(id));
+  }
+
   // --- URL & Session State ---
   const urlParams = new URLSearchParams(window.location.search);
-  let activeView = urlParams.get('view') || 'food'; // 'food' | 'events' | 'deadlines' | 'saved'
-  let activeTheme = localStorage.getItem(STORAGE_KEY_THEME) || urlParams.get('theme') || 'light';
-  let openEventId = urlParams.get('open') || null;
-  let activeDateFilter = urlParams.get('when') || 'upcoming'; // 'upcoming' | 'today' | 'tomorrow' | 'week' | YYYY-MM-DD
+  const rawView = urlParams.get('view');
+  let activeView = VALID_VIEWS.has(rawView) ? rawView : 'food';
+
+  const rawTheme = urlParams.get('theme');
+  const storedTheme = localStorage.getItem(STORAGE_KEY_THEME);
+  let activeTheme = (storedTheme === 'dark' || storedTheme === 'light')
+    ? storedTheme
+    : (rawTheme === 'dark' ? 'dark' : 'light');
+
+  const rawOpen = urlParams.get('open');
+  let openEventId = isSafeId(rawOpen) ? rawOpen : null;
+
+  const rawWhen = urlParams.get('when');
+  let activeDateFilter = (rawWhen && (VALID_WHEN_TOKENS.has(rawWhen) || DATE_REGEX.test(rawWhen)))
+    ? rawWhen
+    : 'upcoming';
+
   let selectedSources = new Set();
   let showSourcesPopover = false;
   let showDatePopover = false;
@@ -46,7 +79,6 @@
   if (initialMetaTheme) initialMetaTheme.content = activeTheme === 'dark' ? '#0E1117' : '#FDB515';
 
   // --- Utility Functions ---
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const icon = (id, cls = '') => `<svg class="icon ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const dayDiff = (d, base = new Date()) => Math.round((startOfDay(d) - startOfDay(base)) / DAY);
@@ -325,7 +357,7 @@
         }
 
         // Prefer clean link without my3.
-        if (existing.link && existing.link.includes('my3.my.umbc.edu') && ev.link && !ev.link.includes('my3.my.umbc.edu')) {
+        if (isMy3Host(existing.link) && !isMy3Host(ev.link)) {
           existing.link = ev.link;
         }
       }
@@ -548,7 +580,7 @@
                 const totalDur = Math.max(1, (e.end - e.start));
                 const pctElapsed = Math.min(100, Math.max(0, ((now - e.start) / totalDur) * 100));
                 return `
-                  <div class="now-card" role="button" tabindex="0" onclick="window.app.openEvent('${e.id}')">
+                  <div class="now-card" role="button" tabindex="0" data-id="${esc(e.id)}" onclick="window.app.openEvent(this.dataset.id)">
                     <span class="status"><span class="dot pulse"></span>Serving now</span>
                     <span class="remaining">${dur(minsLeft).replace(/ (min|hr)/, '<small>$1</small>')}<small>left</small></span>
                     <h3>${esc(e.title)}</h3>
@@ -560,7 +592,7 @@
               const minsToStart = Math.max(0, Math.round((e.start - now) / MIN));
               const isSoon = minsToStart <= 90;
               return `
-                <div class="now-card ${isSoon ? '' : 'later'}" role="button" tabindex="0" onclick="window.app.openEvent('${e.id}')">
+                <div class="now-card ${isSoon ? '' : 'later'}" role="button" tabindex="0" data-id="${esc(e.id)}" onclick="window.app.openEvent(this.dataset.id)">
                   <span class="status soon">${isSoon ? 'Starts soon' : `Next up, ${dayName(e.start)}`}</span>
                   <span class="remaining">${isSoon ? `in ${minsToStart}<small>min</small>` : `${hm(e.start).t}<small>${hm(e.start).ap}</small>`}</span>
                   <h3>${esc(e.title)}</h3>
@@ -576,7 +608,7 @@
 
   function renderToolbar(count) {
     const chip = (id, label, active) => `
-      <button class="chip" data-when="${id}" aria-pressed="${active ? 'true' : 'false'}" onclick="window.app.setDateFilter('${id}')">${label}</button>
+      <button class="chip" data-when="${esc(id)}" aria-pressed="${active ? 'true' : 'false'}" onclick="window.app.setDateFilter(this.dataset.when)">${label}</button>
     `;
 
     // Available sources for popover
@@ -596,8 +628,8 @@
           ${chip('today', 'Today', activeDateFilter === 'today')}
           ${chip('tomorrow', 'Tomorrow', activeDateFilter === 'tomorrow')}
           ${chip('week', 'This week', activeDateFilter === 'week')}
-          <button class="chip menu ${activeDateFilter.startsWith('20') ? 'has-value' : ''}" onclick="window.app.toggleDatePopover(event)">
-            ${icon('calendar', 'icon-sm')}${activeDateFilter.startsWith('20') ? activeDateFilter : 'Pick a date'}
+          <button class="chip menu ${DATE_REGEX.test(activeDateFilter) ? 'has-value' : ''}" onclick="window.app.toggleDatePopover(event)">
+            ${icon('calendar', 'icon-sm')}${DATE_REGEX.test(activeDateFilter) ? esc(activeDateFilter) : 'Pick a date'}
           </button>
         </div>
         <span class="divider-v"></span>
@@ -651,7 +683,7 @@
         ${[...sourceCounts.entries()].map(([srcName, srcCount]) => {
           const isSelected = selectedSources.has(srcName);
           return `
-            <div class="check-row ${isSelected ? 'on' : ''}" onclick="window.app.toggleSourceSelection('${srcName}')">
+            <div class="check-row ${isSelected ? 'on' : ''}" data-source="${esc(srcName)}" onclick="window.app.toggleSourceSelection(this.dataset.source)">
               <span class="box">${isSelected ? icon('check', 'icon-sm') : ''}</span>
               ${esc(srcName)}
               <span class="n">${srcCount}</span>
@@ -701,7 +733,7 @@
     }
 
     return `
-      <article class="row ${openEventId === e.id ? 'selected' : ''}" tabindex="0" role="button" onclick="window.app.openEvent('${e.id}')">
+      <article class="row ${openEventId === e.id ? 'selected' : ''}" tabindex="0" role="button" data-id="${esc(e.id)}" onclick="window.app.openEvent(this.dataset.id)">
         <div class="time">${timeText}${endText}</div>
         <div>
           <h3>${esc(e.title)}</h3>
@@ -711,7 +743,7 @@
           </div>
           ${tags.length ? `<div class="tags">${tags.join('')}</div>` : ''}
         </div>
-        <button class="save ${isSaved ? 'on' : ''}" aria-label="${isSaved ? 'Remove from saved' : 'Save'}" onclick="window.app.toggleSave('${e.id}', event)">
+        <button class="save ${isSaved ? 'on' : ''}" aria-label="${isSaved ? 'Remove from saved' : 'Save'}" data-id="${esc(e.id)}" onclick="window.app.toggleSave(this.dataset.id, event)">
           ${icon('bookmark')}
         </button>
       </article>
@@ -796,7 +828,7 @@
       const isSaved = savedEventIds.has(d.id);
 
       return `
-        <article class="dl-row" onclick="window.app.openEvent('${d.id}')">
+        <article class="dl-row" data-id="${esc(d.id)}" onclick="window.app.openEvent(this.dataset.id)">
           <div class="countdown ${cls}">${big}${small ? `<small>${small}</small>` : ''}</div>
           <div>
             <h3>${esc(d.title)}</h3>
@@ -805,7 +837,7 @@
               <span>${esc(d.source)}</span>
             </div>
           </div>
-          <button class="save ${isSaved ? 'on' : ''}" aria-label="Save" onclick="window.app.toggleSave('${d.id}', event)">
+          <button class="save ${isSaved ? 'on' : ''}" aria-label="Save" data-id="${esc(d.id)}" onclick="window.app.toggleSave(this.dataset.id, event)">
             ${icon('bookmark')}
           </button>
         </article>
@@ -867,10 +899,10 @@
             <section class="dl-group">
               <h2>Saved Deadlines</h2>
               ${savedList.filter((e) => e.category === 'important_date').map((d) => `
-                <article class="dl-row" onclick="window.app.openEvent('${d.id}')">
+                <article class="dl-row" data-id="${esc(d.id)}" onclick="window.app.openEvent(this.dataset.id)">
                   <div class="countdown urgent">${d.start ? dayDiff(d.start) : 0}<small>days</small></div>
                   <div><h3>${esc(d.title)}</h3><div class="meta">${d.start ? longDate(d.start) : 'TBA'}</div></div>
-                  <button class="save on" onclick="window.app.toggleSave('${d.id}', event)">${icon('bookmark')}</button>
+                  <button class="save on" data-id="${esc(d.id)}" onclick="window.app.toggleSave(this.dataset.id, event)">${icon('bookmark')}</button>
                 </article>
               `).join('')}
             </section>
@@ -957,7 +989,7 @@
             <h2>Deadlines coming up <a onclick="window.app.setView('deadlines')">See all</a></h2>
             <div class="panel list-tight">
               ${deadlinesUpcoming.map((d) => `
-                <div class="mini-row" role="button" tabindex="0" onclick="window.app.openEvent('${d.id}')">
+                <div class="mini-row" role="button" tabindex="0" data-id="${esc(d.id)}" onclick="window.app.openEvent(this.dataset.id)">
                   <div class="countdown ${dayDiff(d.start) <= 3 ? 'urgent' : 'soon'}">
                     ${dayDiff(d.start) === 0 ? 'Today' : dayDiff(d.start)}<small>${dayDiff(d.start) === 0 ? '' : 'days'}</small>
                   </div>
@@ -976,7 +1008,7 @@
             <h2>Always on campus</h2>
             <div class="panel list-tight">
               ${resources.map((r) => `
-                <div class="resource" role="button" tabindex="0" onclick="window.app.openEvent('${r.id}')">
+                <div class="resource" role="button" tabindex="0" data-id="${esc(r.id)}" onclick="window.app.openEvent(this.dataset.id)">
                   <span class="ico">${icon(r.kind === 'ongoing' ? 'bag' : 'leaf')}</span>
                   <div>
                     <strong>${esc(r.title)}</strong>
@@ -1117,7 +1149,7 @@
             <div class="also">
               <h4>More free food ${dayName(ev.start).toLowerCase()}</h4>
               ${sameDayFood.map((x) => `
-                <a onclick="window.app.openEvent('${x.id}')">
+                <a data-id="${esc(x.id)}" onclick="window.app.openEvent(this.dataset.id)">
                   <b>${x.start ? timeStr(x.start) : 'TBA'}</b>
                   <span>${esc(x.title)}<br><span style="color:var(--ink-3)">${esc(x.location)}</span></span>
                 </a>
@@ -1127,13 +1159,13 @@
         </div>
 
         <div class="drawer-actions">
-          <button class="btn primary" onclick="window.app.exportIcs('${ev.id}')">
+          <button class="btn primary" data-id="${esc(ev.id)}" onclick="window.app.exportIcs(this.dataset.id)">
             ${icon('calendar', 'icon-sm')} Add to calendar
           </button>
-          <button class="btn ${isSaved ? 'gold' : ''}" onclick="window.app.toggleSave('${ev.id}', event)">
+          <button class="btn ${isSaved ? 'gold' : ''}" data-id="${esc(ev.id)}" onclick="window.app.toggleSave(this.dataset.id, event)">
             ${icon('bookmark', 'icon-sm')} <span>${isSaved ? 'Saved' : 'Save'}</span>
           </button>
-          <button class="btn" onclick="window.app.shareEvent('${ev.id}')">
+          <button class="btn" data-id="${esc(ev.id)}" onclick="window.app.shareEvent(this.dataset.id)">
             ${icon('share', 'icon-sm')} <span>Share</span>
           </button>
         </div>
@@ -1268,6 +1300,7 @@
   // --- Public App Interface for Event Handlers ---
   window.app = {
     setView(v) {
+      if (!VALID_VIEWS.has(v)) return;
       if (navigator.vibrate) { try { navigator.vibrate(8); } catch (_) {} }
       activeView = v;
       activeDateFilter = 'upcoming';
@@ -1276,6 +1309,7 @@
     },
 
     setDateFilter(w) {
+      if (!VALID_WHEN_TOKENS.has(w) && !DATE_REGEX.test(w)) return;
       if (activeDateFilter === w && w !== 'upcoming') {
         activeDateFilter = 'upcoming';
       } else {
@@ -1334,7 +1368,8 @@
     },
 
     openEvent(id) {
-      openEventId = id;
+      if (id && !isSafeId(id)) return;
+      openEventId = id || null;
       renderApp();
     },
 

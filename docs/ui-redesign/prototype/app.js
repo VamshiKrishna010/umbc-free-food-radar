@@ -3,7 +3,9 @@
    &popover=sources  &state=loading|error|offline|empty  &now=<ISO datetime>  */
 (function () {
   const P = new URLSearchParams(location.search);
-  const VIEW = P.get("view") || "food";
+  const VALID_VIEWS = new Set(["food", "events", "deadlines", "saved"]);
+  const rawView = P.get("view");
+  const VIEW = VALID_VIEWS.has(rawView) ? rawView : "food";
   const THEME = P.get("theme") || "light";
   const OPEN = P.get("open");
   const POPOVER = P.get("popover");
@@ -311,8 +313,14 @@
     </aside>`;
   }
 
-  const views = { food: viewFood, events: viewEvents, deadlines: viewDeadlines, saved: viewSaved };
-  document.getElementById("app").innerHTML = (views[VIEW] || viewFood)() + drawer(all.find(e => e.id === OPEN));
+  const views = new Map([
+    ["food", viewFood],
+    ["events", viewEvents],
+    ["deadlines", viewDeadlines],
+    ["saved", viewSaved],
+  ]);
+  const renderView = views.get(VIEW) || viewFood;
+  document.getElementById("app").innerHTML = renderView() + drawer(all.find(e => e.id === OPEN));
   if (OPEN) document.body.style.overflow = "hidden";
 
   // "/" focuses search, Esc closes drawer
