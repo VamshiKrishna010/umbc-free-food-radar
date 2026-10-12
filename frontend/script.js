@@ -257,6 +257,77 @@
     };
   }
 
+  function deduplicateEvents(events) {
+    const groups = new Map();
+
+    for (const ev of events) {
+      if (!ev) continue;
+      const rawLink = (ev.link || ev.id || '').trim();
+      const normUrl = rawLink
+        .replace(/^https?:\/\//i, 'https://')
+        .replace(/my3\.my\.umbc\.edu/i, 'my.umbc.edu')
+        .replace(/\/+$/, '')
+        .toLowerCase();
+
+      const cleanTitle = (ev.title || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      let dateKey = '';
+      if (ev.start instanceof Date && !isNaN(ev.start.getTime())) {
+        dateKey = `${ev.start.getFullYear()}-${ev.start.getMonth() + 1}-${ev.start.getDate()} ${ev.start.getHours()}:${ev.start.getMinutes()}`;
+      } else {
+        dateKey = (ev.recurrence_text || ev.date || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      // Group key: if standard ID match, use canonical ID + date, else use cleanTitle + date
+      let groupKey = `${cleanTitle}||${dateKey}`;
+      const myumbcMatch = normUrl.match(/my\.umbc\.edu\/(?:groups\/[^/]+\/)?events\/(\d+)/i);
+      const localistMatch = normUrl.match(/\/events?\/event\/(\d+)/i) || (ev.id && String(ev.id).match(/^localist:(\d+)/i));
+      if (myumbcMatch) {
+        groupKey = `myumbc:${myumbcMatch[1]}||${dateKey}`;
+      } else if (localistMatch) {
+        groupKey = `localist:${localistMatch[1]}`;
+      }
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, ev);
+      } else {
+        const existing = groups.get(groupKey);
+        // Merge food items
+        const foodSet = new Set(existing.food_items || []);
+        (ev.food_items || []).forEach((f) => foodSet.add(f));
+        existing.food_items = [...foodSet];
+
+        // Promote category if one is food_event
+        if (ev.category === 'food_event') existing.category = 'food_event';
+
+        // Prefer specific location
+        if ((!existing.location || existing.location === 'UMBC Campus') && ev.location && ev.location !== 'UMBC Campus') {
+          existing.location = ev.location;
+        }
+
+        // Prefer richer description
+        if ((ev.description || '').length > (existing.description || '').length) {
+          existing.description = ev.description;
+        }
+
+        // Prefer clean link without my3.
+        if (existing.link && existing.link.includes('my3.my.umbc.edu') && ev.link && !ev.link.includes('my3.my.umbc.edu')) {
+          existing.link = ev.link;
+        }
+      }
+    }
+
+    return [...groups.values()];
+  }
+
   // --- Data Fetching ---
   async function loadData() {
     const appEl = document.getElementById('app');
@@ -270,7 +341,8 @@
       const res = await fetch(API_URL, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      allEvents = (Array.isArray(data) ? data : []).map(normalizeEvent);
+      const rawEvents = (Array.isArray(data) ? data : []).map(normalizeEvent);
+      allEvents = deduplicateEvents(rawEvents);
       lastFetchTime = new Date();
       localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(allEvents));
       updateFreshnessLabel();
@@ -279,11 +351,12 @@
       try {
         const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_CACHE) || '[]');
         if (cached && cached.length) {
-          allEvents = cached.map((e) => ({
+          const cachedParsed = cached.map((e) => ({
             ...e,
             start: e.start ? new Date(e.start) : null,
             end: e.end ? new Date(e.end) : null,
           }));
+          allEvents = deduplicateEvents(cachedParsed);
           freshnessEl.textContent = 'Offline (cached data)';
         } else {
           freshnessEl.textContent = 'Could not load data';

@@ -68,13 +68,14 @@ _LOCALIST_EVENT_ID_RE = re.compile(r"/events?/event/(\d+)", re.I)
 
 
 def normalize_event_id(link: str) -> str:
-    """Normalize event IDs so shared Localist events dedupe across UMBC sites."""
+    """Normalize event IDs so shared Localist events and myUMBC events dedupe across UMBC sites."""
     if not link:
         return ""
-    match = _LOCALIST_EVENT_ID_RE.search(link)
+    cleaned = re.sub(r"^https?://my3\.my\.umbc\.edu", "https://my.umbc.edu", link.strip()).rstrip("/")
+    match = _LOCALIST_EVENT_ID_RE.search(cleaned)
     if match:
         return f"localist:{match.group(1)}"
-    return link
+    return cleaned
 
 
 def load_seen_ids() -> Set[str]:
@@ -131,22 +132,47 @@ def _is_valid_event(event: dict) -> bool:
 
 
 def _dedupe_events(events_list: list) -> list:
-    """Final safety-net dedup: keep first occurrence by ID, then by title+date fingerprint."""
-    seen_ids = set()
-    seen_fingerprints = set()
-    unique = []
+    """Final safety-net dedup: keep best occurrence by normalized ID and title+date fingerprint."""
+    groups: Dict[str, Dict[str, Any]] = {}
     for ev in events_list:
-        eid = ev.get("id") or ev.get("link", "")
-        if not eid or eid in seen_ids:
+        raw_id = ev.get("id") or ev.get("link", "")
+        eid = normalize_event_id(raw_id)
+        if not eid:
             continue
-        seen_ids.add(eid)
-        title_norm = re.sub(r"\s+", " ", (ev.get("title") or "").strip().lower())
-        date_norm = re.sub(r"\s+", " ", (ev.get("date") or "").strip().lower())
-        fp = f"{title_norm}||{date_norm}"
-        if fp in seen_fingerprints:
-            continue
-        seen_fingerprints.add(fp)
-        unique.append(ev)
+        title_norm = re.sub(r"[^a-z0-9]+", " ", (ev.get("title") or "").strip().lower()).strip()
+        date_norm = re.sub(r"[^a-z0-9]+", " ", (ev.get("date") or "").strip().lower()).strip()
+
+        # Canonical key
+        if eid.startswith("localist:"):
+            key = eid
+        elif "my.umbc.edu" in eid:
+            m_my = re.search(r"my\.umbc\.edu/(?:groups/[^/]+/)?events/(\d+)", eid)
+            key = f"myumbc:{m_my.group(1)}||{date_norm}" if m_my else f"{title_norm}||{date_norm}"
+        else:
+            key = f"{title_norm}||{date_norm}" if title_norm else eid
+
+        if key not in groups:
+            ev_copy = dict(ev)
+            ev_copy["id"] = eid
+            if ev_copy.get("link"):
+                ev_copy["link"] = re.sub(r"^https?://my3\.my\.umbc\.edu", "https://my.umbc.edu", ev_copy["link"].strip())
+            groups[key] = ev_copy
+        else:
+            existing = groups[key]
+            # Merge food keyword
+            if ev.get("food_keyword") and not existing.get("food_keyword"):
+                existing["food_keyword"] = ev["food_keyword"]
+            # Promote category
+            if ev.get("category") == CATEGORY_FOOD_EVENT:
+                existing["category"] = CATEGORY_FOOD_EVENT
+            # Prefer longer description
+            if len(ev.get("description", "")) > len(existing.get("description", "")):
+                existing["description"] = ev["description"]
+            # Prefer non-my3 link
+            if "my3." in str(existing.get("link", "")) and "my3." not in str(ev.get("link", "")):
+                existing["link"] = ev["link"]
+
+    unique = list(groups.values())
     dropped = len(events_list) - len(unique)
     if dropped:
         print(f"  Dedup pass removed {dropped} duplicate(s)")
@@ -154,28 +180,61 @@ def _dedupe_events(events_list: list) -> list:
 
 
 def _cleanup_stale_duplicates():
-    """Remove old Supabase rows whose IDs are raw Localist URLs now covered by a normalized ID."""
+    """Remove old Supabase rows:
+    1. Raw Localist URLs superseded by localist:<id>.
+    2. Stale my3.my.umbc.edu rows superseded by my.umbc.edu rows.
+    3. Duplicate rows with identical (clean_title, clean_date).
+    """
     if supabase is None:
         return
     try:
-        response = supabase.table("events").select("id, link").execute()
+        response = supabase.table("events").select("*").execute()
         rows = cast(List[Dict[str, Any]], response.data or [])
     except Exception as e:
         print(f"  [CLEANUP] Failed to read events: {e}")
         return
 
     all_ids = {str(row.get("id", "")) for row in rows}
-    stale_ids = []
+    stale_ids = set()
+
+    # 1. Localist stale URLs
     for row in rows:
         rid = str(row.get("id", ""))
         link = str(row.get("link", ""))
         nid = normalize_event_id(link) if link else rid
-        # Only treat raw URL as stale if the normalized ID actually exists in Supabase
         if nid != rid and nid.startswith("localist:") and nid in all_ids:
-            stale_ids.append(rid)
+            stale_ids.add(rid)
+
+    # 2. Semantic title + date duplicate clusters
+    by_fingerprint: Dict[str, List[Dict[str, Any]]] = {}
+    for row in rows:
+        rid = str(row.get("id", ""))
+        if rid in stale_ids:
+            continue
+        title_norm = re.sub(r"[^a-z0-9]+", " ", str(row.get("title", "")).lower()).strip()
+        date_norm = re.sub(r"[^a-z0-9]+", " ", str(row.get("date", "")).lower()).strip()
+        if not title_norm:
+            continue
+        fp = f"{title_norm}||{date_norm}"
+        by_fingerprint.setdefault(fp, []).append(row)
+
+    for fp, cluster in by_fingerprint.items():
+        if len(cluster) > 1:
+            def score(x: Dict[str, Any]):
+                return (
+                    1 if x.get("category") == CATEGORY_FOOD_EVENT else 0,
+                    0 if "my3." in str(x.get("id", "")) else 1,
+                    len(str(x.get("description", ""))),
+                    str(x.get("updated_at") or x.get("created_at") or "")
+                )
+            sorted_cluster = sorted(cluster, key=score, reverse=True)
+            for discard in sorted_cluster[1:]:
+                stale_ids.add(str(discard.get("id", "")))
 
     if not stale_ids:
+        print("  [CLEANUP] No stale duplicates found in Supabase.")
         return
+
     print(f"  [CLEANUP] Removing {len(stale_ids)} stale duplicate row(s) from Supabase...")
     for sid in stale_ids:
         try:
