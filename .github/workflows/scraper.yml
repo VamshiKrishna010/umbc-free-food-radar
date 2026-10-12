@@ -2,8 +2,8 @@ name: Daily Campus Food Scraper
 
 on:
   schedule:
-    # Run every 30 minutes
-    - cron: '*/30 * * * *'
+    # Run every 39 minutes
+    - cron: '*/39 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
